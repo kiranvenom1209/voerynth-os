@@ -90,8 +90,31 @@ src/
 └── views/
     ├── SettingsView.jsx                     # Main settings hub
     ├── IntegrationsView.jsx                 # Integration management
-    └── DevicesView.jsx                      # Device/entity/area management
+    ├── DevicesEntitiesView.jsx              # HA-style registry browser
+    └── settings/                            # Deep-linkable settings sub-pages
+        ├── SettingsHome.jsx                 # Entry point for tabbed settings
+        ├── IntegrationDetailView.jsx        # Detail view for a specific integration
+        ├── DeviceDetailView.jsx             # Device-centric drill-down
+        ├── EntityDetailView.jsx             # Entity-centric drill-down
+        ├── AreasView.jsx                    # Area list and management
+        ├── AutomationsView.jsx              # Automation list
+        ├── AddonsView.jsx                   # Add-on visibility
+        ├── DevicesServicesView.jsx          # Device-specific service helpers
+        ├── PeopleView.jsx                   # People/occupancy overview
+        └── SystemView.jsx                   # System-level status and controls
 ```
+
+## 🔍 File descriptions and how they work together
+
+- **`src/services/haClient.js`** — Central Home Assistant client that reuses the active connection from `HomeAssistantContext`, wraps WebSocket calls, and falls back to REST where needed.
+- **`src/services/flowEngine/index.js`** — Generic config-flow orchestrator that sequences form, menu, external, progress, and entry steps and emits the data structures rendered by the settings UI.
+- **`src/components/settings/FormRenderer.jsx`** — Dynamic renderer that maps Home Assistant config schemas into input controls, handles validation, and feeds responses back to the flow engine.
+- **`src/components/settings/IntegrationFlowModal.jsx`** — User-facing modal that wires the flow engine, form renderer, and connection state together so integrations can be added or re-authenticated end-to-end.
+- **`src/components/settings/DevicePairingModal.jsx`** — Specialized pairing experience for Matter, Zigbee (ZHA), and ESPHome devices that triggers the right service calls and displays live status updates.
+- **`src/views/SettingsView.jsx`** — Top-level entry for the settings area with navigation tabs into integrations and device/entity management.
+- **`src/views/IntegrationsView.jsx`** — Installed integration list and quick-add catalog; launches `IntegrationFlowModal` for config flows and reauth flows.
+- **`src/views/DevicesEntitiesView.jsx`** — HA-style registry browser that merges entity states with device and area registries, supports search, and opens edit modals for entities/devices/areas.
+- **`src/views/settings/*`** — Additional drill-down pages that reuse the same `haClient` connection to show per-integration, per-device, or per-area details and to expose system/people/automation context.
 
 ## 🚀 Usage
 
