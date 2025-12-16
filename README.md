@@ -1,8 +1,8 @@
-# Vœrynth OS
+# Vœrynth OS — Private Investor & Contributor Edition
 
-> **The Neural Interface of Vœrynth Système — a local-first command deck for estates and superyachts. Real-time. Voice-ready. Zero-cloud by default.**
+> **The Neural Interface of Vœrynth Système — a couture command deck for estates and superyachts. Local-first. Voice-ready. Zero-cloud by default.**
 
-Vœrynth OS is the **Layer 5 interface** of **Vœrynth Système**: a premium control deck (web + mobile) built to operate on a private local network and connect into a local automation backbone (Home Assistant at the state/integration layer). The goal is not "more dashboards" — it's **less friction**: the environment should feel intelligently managed, and the interface should exist mainly for confirmation, exceptions, and deliberate control.
+Vœrynth OS is the **Layer 5 interface** of **Vœrynth Système**, our luxury automation startup founded by **Danny Sneham (Founder)** and **Kiran Karthikeyan Achari (Co-Founder)**. This repository is private and shared only with investors, trusted collaborators, and approved contributors for evaluation and build-out. The product vision is not "more dashboards" — it's **less friction**: environments that manage themselves quietly, with interfaces reserved for confirmation, exceptions, and deliberate control.
 
 ---
 
@@ -134,6 +134,8 @@ Decisions and confidence logic belong upstream in **Vœrynth Core**.
 ---
 
 ## 🚀 Getting Started (dev)
+
+> **Private access notice:** This repository is private and governed by the Vœrynth OS Proprietary License. Content is shared solely for internal evaluation by investors, approved collaborators, and contracted contributors.
 
 ### Prerequisites
 
@@ -338,40 +340,32 @@ Contributions are welcome! However, please note:
 
 ---
 
-## 📜 License
+## 📜 License & Confidentiality
 
-**Copyright © 2024-2025 Kiran Karthikeyan Achari. All Rights Reserved.**
+**Copyright © 2024-2025 Vœrynth Système. All Rights Reserved.**
 
-### Code License
-The source code of this project is licensed under the **Apache License 2.0** (see [LICENSE](LICENSE) file).
+This repository is provided under the **Vœrynth OS Proprietary License** (see [LICENSE](LICENSE)).
 
-You may use, modify, and distribute the code under the terms of the Apache 2.0 license, which includes:
-- ✅ Commercial use
-- ✅ Modification
-- ✅ Distribution
-- ✅ Patent use
-- ✅ Private use
-
-**Requirements:**
-- Include the original copyright notice
-- Include the Apache 2.0 license text
-- State significant changes made to the code
-- Include a NOTICE file if distributing (if applicable)
+- **Audience:** Private access for investors, trusted collaborators, and approved contributors under NDA or written agreement.
+- **Permitted use:** Review, build (.apk / .exe), and run for internal evaluation, private demonstrations, or contribution back to Vœrynth Système.
+- **Prohibited use:** No redistribution, public hosting, app-store submission, resale, or derivative branding without explicit written permission.
+- **Confidentiality:** Treat all materials as confidential and share only with parties expressly authorized by Vœrynth Système.
 
 ### Intellectual Property & Trademarks
-- **"Vœrynth OS"**, **"Vœrynth"**, and associated branding, logos, and design elements are the **exclusive intellectual property** of **Kiran Karthikeyan Achari**.
-- The Apache 2.0 license **does NOT grant permission** to use the trade names, trademarks, service marks, or product names of Vœrynth OS, except as required for describing the origin of the work.
-- Any derivative works or forks **must rebrand** and may not use the "Vœrynth" name or associated branding without explicit written permission.
+- **"Vœrynth," "Vœrynth OS," and "Vœrynth Système"** along with associated branding, logos, and design language remain the exclusive intellectual property of Vœrynth Système.
+- No rights to use the names, marks, or visual identity are granted beyond referencing the software as provided.
 
 ### Third-Party Licenses
-This project may include or depend on third-party open-source software. See individual package licenses in `node_modules/` or `package.json` for details.
+Third-party dependencies remain under their respective open-source licenses; see `package.json` for attributions.
 
 ---
 
-## 👨‍💻 Founders
+## 👨‍💻 Founders & Story
 
-**Kiran Karthikeyan Achari** — Lead Systems Architect
-**Danny Sneham** — Operations & Infrastructure
+Vœrynth Système is being built as a **bespoke automation house**—software tailored for estates, private villas, and superyachts that expect silent intelligence, impeccable uptime, and couture-grade presentation.
+
+- **Danny Sneham — Founder**: Vision, partnerships, and operations for luxury deployments.
+- **Kiran Karthikeyan Achari — Co-Founder & Lead Systems Architect**: Product architecture, neural interface design, and platform stewardship.
 
 - GitHub: [@kiranvenom1209](https://github.com/kiranvenom1209)
 - Repository: [voerynth-os](https://github.com/kiranvenom1209/voerynth-os)
