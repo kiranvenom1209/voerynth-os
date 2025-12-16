@@ -230,13 +230,6 @@ Private distribution lives on **GitHub Packages**. To install or publish Vœrynt
 
 For a full walkthrough, see [NPM_REGISTRY.md](NPM_REGISTRY.md).
 
-### CI autopublish (GitHub Actions)
-
-- A ready-made workflow lives at `.github/workflows/publish-github-packages.yml`.
-- It publishes on any tag matching `v*` or on manual **Run workflow** in GitHub → Actions.
-- Authentication defaults to the repository `GITHUB_TOKEN` (with `packages: write`), or set a `NODE_AUTH_TOKEN` secret to use a fine-grained PAT.
-- Before tagging, bump `package.json` to the version you intend to ship; the workflow publishes that exact semver to GitHub Packages.
-
 ---
 
 ## 📁 Project Structure

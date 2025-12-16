@@ -59,17 +59,6 @@ For other private packages under the same scope, use the same pattern: `npm inst
 
 > **Tip:** For CI, add `NODE_AUTH_TOKEN` as an encrypted secret and run `npm ci` / `npm publish` within the same authenticated context.
 
-### CI autopublish (GitHub Actions)
-
-We ship a turnkey workflow at `.github/workflows/publish-github-packages.yml`:
-
-1. **Triggers:** Push a tag matching `v*` (example: `v5.0.2`) or click **Run workflow** in the Actions tab.
-2. **Auth:** Uses `GITHUB_TOKEN` with `packages:write` by default; set a `NODE_AUTH_TOKEN` secret if you prefer a fine-grained PAT.
-3. **Flow:**
-   - Checkout → install dependencies (`npm ci`) → `npm publish --registry=https://npm.pkg.github.com`.
-   - The published version matches the `package.json` version in the tagged commit.
-4. **Prep:** Bump `package.json` before tagging so CI publishes the intended semver.
-
 ---
 
 ## 5) Using the package in other private repos
