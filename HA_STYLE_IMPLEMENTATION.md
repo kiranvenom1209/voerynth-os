@@ -1,8 +1,10 @@
-# ✅ Home Assistant-Style Devices & Entities Implementation
+# ✅ Home Assistant-Style Devices & Entities Implementation — Private Build Notes
 
-## 🎯 What Was Fixed
+> **Audience:** Trusted investors, collaborators, and Vœrynth Système contributors refining the Layer 5 interface. This document explains how we rebuilt the Devices & Entities surfaces to Home Assistant parity while honoring our luxury-grade reliability standards.
 
-The previous implementation had a critical bug: it was trying to read `area_id` from entity **states**, which don't contain that information. This is a common mistake when building HA-like UIs.
+## 🎯 What Was Fixed (Executive Snapshot)
+
+The prior approach attempted to read `area_id` from entity **states**—data that simply isn’t there—causing the infamous “0 devices” symptom. This rewrite mirrors Home Assistant’s own joins so the registry views stay accurate and worthy of investor demos.
 
 ### ❌ Previous Approach (WRONG)
 - Used `get_states` + `state_changed` events
@@ -10,7 +12,7 @@ The previous implementation had a critical bug: it was trying to read `area_id` 
 - Resulted in "0 devices" or missing area information
 - Manual event bus wiring
 
-### ✅ New Approach (CORRECT - HA-Style)
+### ✅ New Approach (CORRECT — HA-Style)
 - Uses `subscribeEntities()` for live state updates
 - Fetches 3 separate registries via WebSocket commands
 - Proper join logic matching Home Assistant frontend
@@ -18,7 +20,7 @@ The previous implementation had a critical bug: it was trying to read `area_id` 
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Architecture (Investor-Grade Reliability)
 
 ### 1. Global State Store (`src/stores/haStore.js`)
 
@@ -226,4 +228,6 @@ You now have a **production-ready Devices & Entities view** that:
 - ✅ Includes debug tools for troubleshooting
 
 No more "0 devices" bug! 🎉
+
+> **Confidential:** This HA-style blueprint is shared solely for Vœrynth Système investor/contributor validation. Keep the details within the trusted circle while we perfect the luxury-grade interface.
 

@@ -1,8 +1,10 @@
-# Settings Module - Implementation Complete ✅
+# Settings Module — Implementation Complete ✅ (Private Briefing)
+
+> **Audience:** Investors and trusted collaborators of **Vœrynth Système**. This briefing outlines how the Layer 5 settings experience achieves full Home Assistant parity without leaving the Vœrynth OS UI. Keep this document confidential and aligned with the proprietary license.
 
 ## Overview
 
-A complete Settings module has been built for Voerynth OS that allows full management of Home Assistant integrations, devices, entities, and areas entirely through the app's UI - **no Home Assistant web interface required**.
+A complete Settings module has been built for Vœrynth OS that allows full management of Home Assistant integrations, devices, entities, and areas directly inside the command-deck UI—**no Home Assistant web interface required**. Every interaction is shaped for luxury residences and vessels where staff time is precious and connectivity may be constrained.
 
 ## 🎯 Features Implemented
 
@@ -196,7 +198,7 @@ While the core functionality is complete, here are potential enhancements:
 - ✅ Can pair at least 1 device category end-to-end (Matter, Zigbee, ESPHome)
 - ✅ Can list devices/entities/areas reliably and reflect new additions after pairing
 - ✅ No HA web UI screens are required at any point
-- ✅ All UX is custom-built for Voerynth OS
+- ✅ All UX is custom-built for Vœrynth OS
 - ✅ Home Assistant remains the backend of truth
 
 ## 🎉 Summary
@@ -205,7 +207,9 @@ The Settings module is **fully functional** and ready to use! You can now:
 - Add and configure integrations without leaving the app
 - Pair new devices (Matter, Zigbee, ESPHome)
 - Manage all devices, entities, and areas
-- Everything works through your beautiful Voerynth OS UI
+- Everything works through your beautiful Vœrynth OS UI
 
 The implementation is production-ready and follows best practices for React, Home Assistant integration, and user experience.
+
+> **Confidential:** Internal Vœrynth Système reference only. Use this to brief investors and collaborators while keeping implementation specifics private.
 
