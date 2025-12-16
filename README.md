@@ -188,6 +188,18 @@ Then build APK in Android Studio.
 npm run electron:build
 ```
 
+**Installables (.apk & .exe are ready to compile):**
+- The `android/` (Capacitor) and `electron/` (desktop shell) projects are already scaffolded and synced to the web app build; no extra wiring is needed before compiling.
+- **Create an Android APK (release):**
+  1. Run `npm run build` to emit `dist/` for native bundling.
+  2. Run `npx cap sync android` to copy the web bundle and native plugins.
+  3. Open Android Studio via `npx cap open android`, select **Build > Generate Signed Bundle / APK**, and follow the wizard.
+  4. The generated `.apk` will appear under `android/app/build/outputs/apk/`.
+- **Create a Windows .exe (Electron):**
+  1. From a Windows environment (or a cross-compiling setup with the required SDKs), run `npm install` and `npm run electron:build`.
+  2. Electron Builder will produce a `.exe` installer/portable build under `electron/dist/` (path may vary by platform target).
+  3. If targeting macOS/Linux, the same command produces `.dmg`/`.AppImage` equivalents.
+
 ---
 
 ## 📁 Project Structure
