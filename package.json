@@ -1,9 +1,24 @@
 {
-  "name": "voerynth-os",
-  "private": true,
+  "name": "@kiranvenom1209/voerynth-os",
+  "private": false,
   "version": "5.0.1",
-  "description": "Vœrynth Système OS - Bespoke Residential Command Protocol",
+  "description": "Vœrynth Système OS — private neural command deck for luxury estates and superyachts",
   "author": "Vœrynth Système",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
+  "keywords": [
+    "luxury automation",
+    "yacht",
+    "estate",
+    "local-first",
+    "offline-first",
+    "voice",
+    "home assistant",
+    "android",
+    "electron"
+  ],
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -11,7 +26,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "npm run build && electron-builder"
+    "electron:build": "npm run build && electron-builder",
+    "publish:gh-packages": "npm publish --registry=https://npm.pkg.github.com"
   },
   "dependencies": {
     "@capacitor-community/screen-brightness": "^7.0.0",

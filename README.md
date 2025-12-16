@@ -1,8 +1,8 @@
-# Vœrynth OS
+# Vœrynth OS — Private Investor & Contributor Edition
 
-> **The Neural Interface of Vœrynth Système — a local-first command deck for estates and superyachts. Real-time. Voice-ready. Zero-cloud by default.**
+> **The Neural Interface of Vœrynth Système — a couture command deck for estates and superyachts. Local-first. Voice-ready. Zero-cloud by default.**
 
-Vœrynth OS is the **Layer 5 interface** of **Vœrynth Système**: a premium control deck (web + mobile) built to operate on a private local network and connect into a local automation backbone (Home Assistant at the state/integration layer). The goal is not "more dashboards" — it's **less friction**: the environment should feel intelligently managed, and the interface should exist mainly for confirmation, exceptions, and deliberate control.
+Vœrynth OS is the **Layer 5 interface** of **Vœrynth Système**, our luxury automation startup founded by **Danny Sneham (Founder)** and **Kiran Karthikeyan Achari (Co-Founder)**. This repository is private and shared only with investors, trusted collaborators, and approved contributors for evaluation and build-out. The product vision is not "more dashboards" — it's **less friction**: environments that manage themselves quietly, with interfaces reserved for confirmation, exceptions, and deliberate control.
 
 ---
 
@@ -26,6 +26,16 @@ Vœrynth Système is designed around a harsh promise: **the property must remain
 Vœrynth OS is the 10%.
 
 The home/yacht should act quietly when confidence is high and ask only when uncertainty is high. The UI is not the brain — it's the **command deck**.
+
+---
+
+## About Vœrynth OS
+
+Vœrynth OS is the **neural bridge** between curated environments and the people who inhabit them. Built for **Vœrynth Système** — our private, invite-only luxury automation startup led by **Danny Sneham (Founder)** and **Kiran Karthikeyan Achari (Co-Founder)** — this app packages the calm precision of a bridge crew into a tactile, local-first command surface. Every screen is designed for decisive action, minimal ceremony, and confidence in low-connectivity conditions common to bluewater voyages and remote estates.
+
+**Signature tags:** `#LuxuryAutomation` · `#YachtReady` · `#EstateGrade` · `#LocalFirst` · `#VoiceReady` · `#HomeAssistantLayer` · `#AndroidAPKReady` · `#ElectronEXEReady`
+
+Use this repository as your **internal dossier**: it's prepped for investor demos, contributor onboarding, and compilation of Android APKs and Windows executables without extra wiring.
 
 ---
 
@@ -135,6 +145,8 @@ Decisions and confidence logic belong upstream in **Vœrynth Core**.
 
 ## 🚀 Getting Started (dev)
 
+> **Private access notice:** This repository is private and governed by the Vœrynth OS Proprietary License. Content is shared solely for internal evaluation by investors, approved collaborators, and contracted contributors.
+
 ### Prerequisites
 
 - **Node.js** 18+ and npm
@@ -188,6 +200,36 @@ Then build APK in Android Studio.
 npm run electron:build
 ```
 
+**Installables (.apk & .exe are ready to compile):**
+- The `android/` (Capacitor) and `electron/` (desktop shell) projects are already scaffolded and synced to the web app build; no extra wiring is needed before compiling.
+- **Create an Android APK (release):**
+  1. Run `npm run build` to emit `dist/` for native bundling.
+  2. Run `npx cap sync android` to copy the web bundle and native plugins.
+  3. Open Android Studio via `npx cap open android`, select **Build > Generate Signed Bundle / APK**, and follow the wizard.
+  4. The generated `.apk` will appear under `android/app/build/outputs/apk/`.
+- **Create a Windows .exe (Electron):**
+  1. From a Windows environment (or a cross-compiling setup with the required SDKs), run `npm install` and `npm run electron:build`.
+  2. Electron Builder will produce a `.exe` installer/portable build under `electron/dist/` (path may vary by platform target).
+  3. If targeting macOS/Linux, the same command produces `.dmg`/`.AppImage` equivalents.
+
+---
+
+## 🔐 Working with the npm registry (GitHub Packages)
+
+Private distribution lives on **GitHub Packages**. To install or publish Vœrynth OS as a scoped package:
+
+1. Create a fine-grained PAT with **read/write:packages** and **contents:read** for this repo.
+2. Add a `.npmrc` entry (user or project level):
+   ```ini
+   @kiranvenom1209:registry=https://npm.pkg.github.com
+   //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+   always-auth=true
+   ```
+3. Export `NODE_AUTH_TOKEN` before installing or publishing: `export NODE_AUTH_TOKEN=ghp_your_token_here`.
+4. Publish to GitHub Packages with `npm run publish:gh-packages` (package already scoped and `publishConfig` set).
+
+For a full walkthrough, see [NPM_REGISTRY.md](NPM_REGISTRY.md).
+
 ---
 
 ## 📁 Project Structure
@@ -195,21 +237,41 @@ npm run electron:build
 ```
 voerynth-os/
 ├── src/
-│   ├── components/        # Reusable UI components
-│   ├── views/            # Main view components (Dashboard, Settings, etc.)
-│   ├── context/          # React contexts (HA connection, accent color)
-│   ├── stores/           # Zustand state stores
-│   ├── services/         # HA API clients, WebSocket handlers
-│   ├── hooks/            # Custom React hooks
-│   ├── utils/            # Utility functions
-│   └── assets/           # Icons, images, brand assets
-├── android/              # Capacitor Android project
-├── electron/             # Electron main process
-├── public/               # Static assets
-├── capacitor.config.json # Capacitor configuration
-├── vite.config.js        # Vite build configuration
-└── package.json          # Dependencies and scripts
+│   ├── App.jsx                 # Root React shell, routes, and layout scaffolding
+│   ├── assets/                 # Brand assets, icons, and shared images
+│   ├── components/             # Reusable UI components (cards, modals, controls)
+│   ├── context/                # Global providers (Home Assistant connection, accent color)
+│   ├── hooks/                  # Custom hooks for HA data, theme state, etc.
+│   ├── plugins/                # Platform-specific hooks (e.g., wake-word bridge)
+│   ├── services/               # Home Assistant WebSocket/REST clients and flow helpers
+│   ├── stores/                 # Zustand stores for stateful HA data
+│   ├── utils/                  # Cross-cutting utilities (formatters, helpers)
+│   └── views/                  # Feature screens (dashboard, settings, media, etc.)
+├── android/                    # Capacitor Android project
+├── electron/                   # Electron main process scaffold
+├── public/                     # Static assets served at root
+├── capacitor.config.json       # Capacitor configuration for native builds
+├── tailwind.config.js          # Tailwind CSS theme and purge settings
+├── vite.config.js              # Vite build configuration
+├── SETTINGS_MODULE_README.md   # Deep dive into the Home Assistant settings UI
+└── package.json                # Dependencies and npm scripts
 ```
+
+### Key files and what they do
+
+- `index.html` — Vite entry HTML that mounts the React application.
+- `src/main.jsx` — Bootstraps React, loads global styles, and renders `<App />` into the root element.
+- `src/App.jsx` — Orchestrates high-level layout, navigation, and feature view routing.
+- `src/plugins/WakeWord.js` — Capacitor bridge that connects the custom wake-word engine to the web layer.
+- `src/services/haClient.js` — Unified Home Assistant client that wraps WebSocket and REST calls with reconnect handling.
+- `src/services/flowEngine/index.js` — Config-flow runner that sequences Home Assistant integration steps.
+- `src/components/settings/FormRenderer.jsx` — Dynamic form builder that renders Home Assistant schemas.
+- `src/components/settings/IntegrationFlowModal.jsx` — UI wrapper for starting and progressing integration flows.
+- `src/components/settings/DevicePairingModal.jsx` — Pairing workflow for Matter, Zigbee (ZHA), and ESPHome devices.
+- `src/views/SettingsView.jsx` — Main settings hub that links into integration and device/entity management.
+- `src/views/IntegrationsView.jsx` — Integration catalog and management surface backed by the config flow engine.
+- `src/views/DevicesEntitiesView.jsx` — HA-style registry browser for devices, entities, and areas with live updates.
+- `src/views/settings/*` — Detailed settings sub-pages (areas, automations, add-ons, system, people, etc.).
 
 ---
 
@@ -306,40 +368,32 @@ Contributions are welcome! However, please note:
 
 ---
 
-## 📜 License
+## 📜 License & Confidentiality
 
-**Copyright © 2024-2025 Kiran Karthikeyan Achari. All Rights Reserved.**
+**Copyright © 2024-2025 Vœrynth Système. All Rights Reserved.**
 
-### Code License
-The source code of this project is licensed under the **Apache License 2.0** (see [LICENSE](LICENSE) file).
+This repository is provided under the **Vœrynth OS Proprietary License** (see [LICENSE](LICENSE)).
 
-You may use, modify, and distribute the code under the terms of the Apache 2.0 license, which includes:
-- ✅ Commercial use
-- ✅ Modification
-- ✅ Distribution
-- ✅ Patent use
-- ✅ Private use
-
-**Requirements:**
-- Include the original copyright notice
-- Include the Apache 2.0 license text
-- State significant changes made to the code
-- Include a NOTICE file if distributing (if applicable)
+- **Audience:** Private access for investors, trusted collaborators, and approved contributors under NDA or written agreement.
+- **Permitted use:** Review, build (.apk / .exe), and run for internal evaluation, private demonstrations, or contribution back to Vœrynth Système.
+- **Prohibited use:** No redistribution, public hosting, app-store submission, resale, or derivative branding without explicit written permission.
+- **Confidentiality:** Treat all materials as confidential and share only with parties expressly authorized by Vœrynth Système.
 
 ### Intellectual Property & Trademarks
-- **"Vœrynth OS"**, **"Vœrynth"**, and associated branding, logos, and design elements are the **exclusive intellectual property** of **Kiran Karthikeyan Achari**.
-- The Apache 2.0 license **does NOT grant permission** to use the trade names, trademarks, service marks, or product names of Vœrynth OS, except as required for describing the origin of the work.
-- Any derivative works or forks **must rebrand** and may not use the "Vœrynth" name or associated branding without explicit written permission.
+- **"Vœrynth," "Vœrynth OS," and "Vœrynth Système"** along with associated branding, logos, and design language remain the exclusive intellectual property of Vœrynth Système.
+- No rights to use the names, marks, or visual identity are granted beyond referencing the software as provided.
 
 ### Third-Party Licenses
-This project may include or depend on third-party open-source software. See individual package licenses in `node_modules/` or `package.json` for details.
+Third-party dependencies remain under their respective open-source licenses; see `package.json` for attributions.
 
 ---
 
-## 👨‍💻 Founders
+## 👨‍💻 Founders & Story
 
-**Kiran Karthikeyan Achari** — Lead Systems Architect
-**Danny Sneham** — Operations & Infrastructure
+Vœrynth Système is being built as a **bespoke automation house**—software tailored for estates, private villas, and superyachts that expect silent intelligence, impeccable uptime, and couture-grade presentation.
+
+- **Danny Sneham — Founder**: Vision, partnerships, and operations for luxury deployments.
+- **Kiran Karthikeyan Achari — Co-Founder & Lead Systems Architect**: Product architecture, neural interface design, and platform stewardship.
 
 - GitHub: [@kiranvenom1209](https://github.com/kiranvenom1209)
 - Repository: [voerynth-os](https://github.com/kiranvenom1209/voerynth-os)

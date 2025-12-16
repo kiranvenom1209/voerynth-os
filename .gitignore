@@ -66,6 +66,9 @@ Thumbs.db
 *.swo
 *~
 
+# Avoid accidentally re-adding the root wake-word model artifact
+/Hey-Ammu_en_android_v4_0_0.ppn
+
 # IDE
 .vscode/settings.json
 .vscode/launch.json
