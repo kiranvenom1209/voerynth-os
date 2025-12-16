@@ -29,6 +29,16 @@ The home/yacht should act quietly when confidence is high and ask only when unce
 
 ---
 
+## About Vœrynth OS
+
+Vœrynth OS is the **neural bridge** between curated environments and the people who inhabit them. Built for **Vœrynth Système** — our private, invite-only luxury automation startup led by **Danny Sneham (Founder)** and **Kiran Karthikeyan Achari (Co-Founder)** — this app packages the calm precision of a bridge crew into a tactile, local-first command surface. Every screen is designed for decisive action, minimal ceremony, and confidence in low-connectivity conditions common to bluewater voyages and remote estates.
+
+**Signature tags:** `#LuxuryAutomation` · `#YachtReady` · `#EstateGrade` · `#LocalFirst` · `#VoiceReady` · `#HomeAssistantLayer` · `#AndroidAPKReady` · `#ElectronEXEReady`
+
+Use this repository as your **internal dossier**: it's prepped for investor demos, contributor onboarding, and compilation of Android APKs and Windows executables without extra wiring.
+
+---
+
 ## What this repo is (and is not)
 
 ### ✅ This repo *is*

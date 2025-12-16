@@ -2,8 +2,19 @@
   "name": "voerynth-os",
   "private": true,
   "version": "5.0.1",
-  "description": "Vœrynth Système OS - Bespoke Residential Command Protocol",
+  "description": "Vœrynth Système OS — private neural command deck for luxury estates and superyachts",
   "author": "Vœrynth Système",
+  "keywords": [
+    "luxury automation",
+    "yacht",
+    "estate",
+    "local-first",
+    "offline-first",
+    "voice",
+    "home assistant",
+    "android",
+    "electron"
+  ],
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
