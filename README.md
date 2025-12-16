@@ -214,6 +214,24 @@ npm run electron:build
 
 ---
 
+## 🔐 Working with the npm registry (GitHub Packages)
+
+Private distribution lives on **GitHub Packages**. To install or publish Vœrynth OS as a scoped package:
+
+1. Create a fine-grained PAT with **read/write:packages** and **contents:read** for this repo.
+2. Add a `.npmrc` entry (user or project level):
+   ```ini
+   @kiranvenom1209:registry=https://npm.pkg.github.com
+   //npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+   always-auth=true
+   ```
+3. Export `NODE_AUTH_TOKEN` before installing or publishing: `export NODE_AUTH_TOKEN=ghp_your_token_here`.
+4. Publish to GitHub Packages with `npm run publish:gh-packages` (package already scoped and `publishConfig` set).
+
+For a full walkthrough, see [NPM_REGISTRY.md](NPM_REGISTRY.md).
+
+---
+
 ## 📁 Project Structure
 
 ```
