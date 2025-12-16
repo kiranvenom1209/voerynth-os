@@ -195,21 +195,41 @@ npm run electron:build
 ```
 voerynth-os/
 ├── src/
-│   ├── components/        # Reusable UI components
-│   ├── views/            # Main view components (Dashboard, Settings, etc.)
-│   ├── context/          # React contexts (HA connection, accent color)
-│   ├── stores/           # Zustand state stores
-│   ├── services/         # HA API clients, WebSocket handlers
-│   ├── hooks/            # Custom React hooks
-│   ├── utils/            # Utility functions
-│   └── assets/           # Icons, images, brand assets
-├── android/              # Capacitor Android project
-├── electron/             # Electron main process
-├── public/               # Static assets
-├── capacitor.config.json # Capacitor configuration
-├── vite.config.js        # Vite build configuration
-└── package.json          # Dependencies and scripts
+│   ├── App.jsx                 # Root React shell, routes, and layout scaffolding
+│   ├── assets/                 # Brand assets, icons, and shared images
+│   ├── components/             # Reusable UI components (cards, modals, controls)
+│   ├── context/                # Global providers (Home Assistant connection, accent color)
+│   ├── hooks/                  # Custom hooks for HA data, theme state, etc.
+│   ├── plugins/                # Platform-specific hooks (e.g., wake-word bridge)
+│   ├── services/               # Home Assistant WebSocket/REST clients and flow helpers
+│   ├── stores/                 # Zustand stores for stateful HA data
+│   ├── utils/                  # Cross-cutting utilities (formatters, helpers)
+│   └── views/                  # Feature screens (dashboard, settings, media, etc.)
+├── android/                    # Capacitor Android project
+├── electron/                   # Electron main process scaffold
+├── public/                     # Static assets served at root
+├── capacitor.config.json       # Capacitor configuration for native builds
+├── tailwind.config.js          # Tailwind CSS theme and purge settings
+├── vite.config.js              # Vite build configuration
+├── SETTINGS_MODULE_README.md   # Deep dive into the Home Assistant settings UI
+└── package.json                # Dependencies and npm scripts
 ```
+
+### Key files and what they do
+
+- `index.html` — Vite entry HTML that mounts the React application.
+- `src/main.jsx` — Bootstraps React, loads global styles, and renders `<App />` into the root element.
+- `src/App.jsx` — Orchestrates high-level layout, navigation, and feature view routing.
+- `src/plugins/WakeWord.js` — Capacitor bridge that connects the custom wake-word engine to the web layer.
+- `src/services/haClient.js` — Unified Home Assistant client that wraps WebSocket and REST calls with reconnect handling.
+- `src/services/flowEngine/index.js` — Config-flow runner that sequences Home Assistant integration steps.
+- `src/components/settings/FormRenderer.jsx` — Dynamic form builder that renders Home Assistant schemas.
+- `src/components/settings/IntegrationFlowModal.jsx` — UI wrapper for starting and progressing integration flows.
+- `src/components/settings/DevicePairingModal.jsx` — Pairing workflow for Matter, Zigbee (ZHA), and ESPHome devices.
+- `src/views/SettingsView.jsx` — Main settings hub that links into integration and device/entity management.
+- `src/views/IntegrationsView.jsx` — Integration catalog and management surface backed by the config flow engine.
+- `src/views/DevicesEntitiesView.jsx` — HA-style registry browser for devices, entities, and areas with live updates.
+- `src/views/settings/*` — Detailed settings sub-pages (areas, automations, add-ons, system, people, etc.).
 
 ---
 
