@@ -1,8 +1,10 @@
-# Wake Word Detection Debugging Guide
+# Wake Word Detection Debugging Guide (Internal)
+
+> **Audience:** Vœrynth Système investors and collaborators validating the Android wake word experience. Keep these notes confidential; they are intended for demo readiness and engineering follow-through.
 
 ## 🔍 Step-by-Step Troubleshooting
 
-### **Step 1: Verify the Build**
+### **Step 1: Verify the Build (APK-ready)**
 
 Did you rebuild and sync the Android app after making the changes?
 
@@ -20,7 +22,7 @@ Then in Android Studio:
 
 ---
 
-### **Step 2: Check Android Logcat**
+### **Step 2: Check Android Logcat (Investor Demo Hygiene)**
 
 Open Android Studio Logcat and filter by `WakeWordPlugin` to see what's happening:
 
@@ -152,7 +154,7 @@ Should contain:
 
 ---
 
-## 🐛 Common Issues and Solutions
+## 🐛 Common Issues and Solutions (Luxury-Grade Stability Checklist)
 
 ### Issue 1: "Nothing happens when I say 'Hey Ammu'"
 
@@ -211,7 +213,7 @@ WakeWord.isListening().then(r => console.log('Listening:', r)).catch(e => consol
 
 ---
 
-## 📞 Next Steps
+## 📞 Next Steps (If You Need Help Before a Demo)
 
 If wake word still doesn't work after following all steps:
 
@@ -219,4 +221,6 @@ If wake word still doesn't work after following all steps:
 2. **Verify file exists** - Screenshot of assets folder in Android Studio
 3. **Check permissions** - Screenshot of app permissions in Android settings
 4. **Test microphone** - Verify microphone works in other apps
+
+> **Confidential:** Internal-only debugging trail for Vœrynth Système. Use it to keep investor and client demos flawless; do not share externally.
 
