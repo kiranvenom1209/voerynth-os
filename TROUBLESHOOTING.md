@@ -1,8 +1,10 @@
-# Troubleshooting: Devices & Entities View
+# Troubleshooting: Devices & Entities View (Private Investor Build)
+
+> **Scope:** Internal guide for Vœrynth Système collaborators and investors validating the Devices & Entities experience. Keep this document confidential and pair it with the HA-style implementation notes for a full picture.
 
 ## Issue: "Not connected to Home Assistant" Error
 
-### What to Check:
+### What to Check (Fast Triage):
 
 1. **Click the "Debug" button** in the Devices & Entities view
 2. Look at the debug panel values:
@@ -16,14 +18,14 @@ Entity Registry: 0 / >0
 Loading: ⏳ Yes / ✅ No
 ```
 
-### Common Issues & Fixes:
+### Common Issues & Fixes (Demo-Ready Outcomes):
 
 #### 1. "Not connected to Home Assistant"
 **Symptom**: Error banner shows "Not connected to Home Assistant"
 
 **Cause**: The store is trying to initialize before HA connection is established
 
-**Fix**: 
+**Fix**:
 - Make sure you're connected to Home Assistant first (check main dashboard)
 - The store should auto-initialize when connection is established
 - Check browser console for connection errors
@@ -60,7 +62,7 @@ Loading: ⏳ Yes / ✅ No
 - Verify WebSocket connection is stable
 - Try refreshing the page
 
-### Browser Console Debugging
+### Browser Console Debugging (Preferred for Investor Demos)
 
 Open browser console (F12) and look for these messages:
 
@@ -78,7 +80,7 @@ Open browser console (F12) and look for these messages:
 ❌ Failed to initialize HA store: Not connected to Home Assistant
 ```
 
-### Manual Test in Console
+### Manual Test in Console (If You Need to Validate Live)
 
 You can test the WebSocket commands manually in the browser console:
 
@@ -102,7 +104,7 @@ haConn.sendMessage({ type: 'config/entity_registry/list' })
   .catch(err => console.error('Error:', err));
 ```
 
-### Expected Behavior
+### Expected Behavior (Gold-Standard Flow)
 
 When everything is working:
 
@@ -125,7 +127,7 @@ When everything is working:
    - Registries are re-fetched
    - Counts update if devices/areas were added/removed
 
-### Still Not Working?
+### Still Not Working? (Escalation Path)
 
 If you've tried all the above and it's still not working:
 
@@ -143,7 +145,7 @@ If the data seems stale:
 2. This will re-fetch all registries
 3. States should update automatically
 
-### Development Mode
+### Development Mode (Verbose Logs)
 
 If you're developing and want to see all the logs:
 
@@ -156,4 +158,6 @@ If you're developing and want to see all the logs:
    - ❌ (errors)
 
 These emoji prefixes make it easy to filter and debug!
+
+> **Confidential:** These remedies are for trusted Vœrynth Système collaborators preparing investor demos and internal rollouts. Please keep operational details within the approved circle.
 

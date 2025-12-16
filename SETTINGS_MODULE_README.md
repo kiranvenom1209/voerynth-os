@@ -1,8 +1,10 @@
-# Settings Module - Implementation Complete ✅
+# Settings Module — Implementation Complete ✅ (Private Briefing)
+
+> **Audience:** Investors and trusted collaborators of **Vœrynth Système**. This briefing outlines how the Layer 5 settings experience achieves full Home Assistant parity without leaving the Vœrynth OS UI. Keep this document confidential and aligned with the proprietary license.
 
 ## Overview
 
-A complete Settings module has been built for Voerynth OS that allows full management of Home Assistant integrations, devices, entities, and areas entirely through the app's UI - **no Home Assistant web interface required**.
+A complete Settings module has been built for Vœrynth OS that allows full management of Home Assistant integrations, devices, entities, and areas directly inside the command-deck UI—**no Home Assistant web interface required**. Every interaction is shaped for luxury residences and vessels where staff time is precious and connectivity may be constrained.
 
 ## 🎯 Features Implemented
 
@@ -90,8 +92,31 @@ src/
 └── views/
     ├── SettingsView.jsx                     # Main settings hub
     ├── IntegrationsView.jsx                 # Integration management
-    └── DevicesView.jsx                      # Device/entity/area management
+    ├── DevicesEntitiesView.jsx              # HA-style registry browser
+    └── settings/                            # Deep-linkable settings sub-pages
+        ├── SettingsHome.jsx                 # Entry point for tabbed settings
+        ├── IntegrationDetailView.jsx        # Detail view for a specific integration
+        ├── DeviceDetailView.jsx             # Device-centric drill-down
+        ├── EntityDetailView.jsx             # Entity-centric drill-down
+        ├── AreasView.jsx                    # Area list and management
+        ├── AutomationsView.jsx              # Automation list
+        ├── AddonsView.jsx                   # Add-on visibility
+        ├── DevicesServicesView.jsx          # Device-specific service helpers
+        ├── PeopleView.jsx                   # People/occupancy overview
+        └── SystemView.jsx                   # System-level status and controls
 ```
+
+## 🔍 File descriptions and how they work together
+
+- **`src/services/haClient.js`** — Central Home Assistant client that reuses the active connection from `HomeAssistantContext`, wraps WebSocket calls, and falls back to REST where needed.
+- **`src/services/flowEngine/index.js`** — Generic config-flow orchestrator that sequences form, menu, external, progress, and entry steps and emits the data structures rendered by the settings UI.
+- **`src/components/settings/FormRenderer.jsx`** — Dynamic renderer that maps Home Assistant config schemas into input controls, handles validation, and feeds responses back to the flow engine.
+- **`src/components/settings/IntegrationFlowModal.jsx`** — User-facing modal that wires the flow engine, form renderer, and connection state together so integrations can be added or re-authenticated end-to-end.
+- **`src/components/settings/DevicePairingModal.jsx`** — Specialized pairing experience for Matter, Zigbee (ZHA), and ESPHome devices that triggers the right service calls and displays live status updates.
+- **`src/views/SettingsView.jsx`** — Top-level entry for the settings area with navigation tabs into integrations and device/entity management.
+- **`src/views/IntegrationsView.jsx`** — Installed integration list and quick-add catalog; launches `IntegrationFlowModal` for config flows and reauth flows.
+- **`src/views/DevicesEntitiesView.jsx`** — HA-style registry browser that merges entity states with device and area registries, supports search, and opens edit modals for entities/devices/areas.
+- **`src/views/settings/*`** — Additional drill-down pages that reuse the same `haClient` connection to show per-integration, per-device, or per-area details and to expose system/people/automation context.
 
 ## 🚀 Usage
 
@@ -173,7 +198,7 @@ While the core functionality is complete, here are potential enhancements:
 - ✅ Can pair at least 1 device category end-to-end (Matter, Zigbee, ESPHome)
 - ✅ Can list devices/entities/areas reliably and reflect new additions after pairing
 - ✅ No HA web UI screens are required at any point
-- ✅ All UX is custom-built for Voerynth OS
+- ✅ All UX is custom-built for Vœrynth OS
 - ✅ Home Assistant remains the backend of truth
 
 ## 🎉 Summary
@@ -182,7 +207,9 @@ The Settings module is **fully functional** and ready to use! You can now:
 - Add and configure integrations without leaving the app
 - Pair new devices (Matter, Zigbee, ESPHome)
 - Manage all devices, entities, and areas
-- Everything works through your beautiful Voerynth OS UI
+- Everything works through your beautiful Vœrynth OS UI
 
 The implementation is production-ready and follows best practices for React, Home Assistant integration, and user experience.
+
+> **Confidential:** Internal Vœrynth Système reference only. Use this to brief investors and collaborators while keeping implementation specifics private.
 
