@@ -322,26 +322,22 @@ Contributions are welcome! However, please note:
 
 **Copyright © 2024-2025 Kiran Karthikeyan Achari. All Rights Reserved.**
 
-### Code License
-The source code of this project is licensed under the **Apache License 2.0** (see [LICENSE](LICENSE) file).
+**WARNING: THIS IS NOT OPEN SOURCE SOFTWARE.**
 
-You may use, modify, and distribute the code under the terms of the Apache 2.0 license, which includes:
-- ✅ Commercial use
-- ✅ Modification
-- ✅ Distribution
-- ✅ Patent use
-- ✅ Private use
+Vœrynth OS is strictly proprietary, closed-source software owned exclusively by Kiran Karthikeyan Achari. No rights are granted or implied.
 
-**Requirements:**
-- Include the original copyright notice
-- Include the Apache 2.0 license text
-- State significant changes made to the code
-- Include a NOTICE file if distributing (if applicable)
+You are explicitly **PROHIBITED** from:
+- ❌ Using or running this software for any purpose
+- ❌ Copying, reproducing, or downloading the source code
+- ❌ Modifying, reverse-engineering, or creating derivative works
+- ❌ Distributing, selling, or sublicensing the software
+- ❌ Forking this repository or porting the code
+
+Any unauthorized use constitutes a severe breach of copyright law and will be met with immediate legal action.
 
 ### Intellectual Property & Trademarks
-- **"Vœrynth OS"**, **"Vœrynth"**, and associated branding, logos, and design elements are the **exclusive intellectual property** of **Kiran Karthikeyan Achari**.
-- The Apache 2.0 license **does NOT grant permission** to use the trade names, trademarks, service marks, or product names of Vœrynth OS, except as required for describing the origin of the work.
-- Any derivative works or forks **must rebrand** and may not use the "Vœrynth" name or associated branding without explicit written permission.
+- **"Vœrynth OS"**, **"Vœrynth"**, and all associated branding, logos, and design elements are the **exclusive intellectual property** of **Kiran Karthikeyan Achari**.
+- You may not use these trademarks or any visual identity elements under any circumstances.
 
 ### Third-Party Licenses
 This project may include or depend on third-party open-source software. See individual package licenses in `node_modules/` or `package.json` for details.

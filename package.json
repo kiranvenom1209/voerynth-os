@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "version": "5.0.2",
+  "license": "UNLICENSED",
   "description": "Vœrynth Système OS - Bespoke Residential Command Protocol",
   "author": "Vœrynth Système",
   "main": "electron/main.js",

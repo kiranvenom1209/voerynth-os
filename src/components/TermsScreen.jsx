@@ -55,7 +55,7 @@ const TermsScreen = ({ onAccept, onDecline }) => {
                         <p className="mb-6">Nothing in this Agreement removes or limits any mandatory consumer rights that apply under the laws of your country of residence.</p>
 
                         <h3 className="text-lg  text-slate-200 mt-6 mb-3">1. License Grant</h3>
-                        <p className="mb-3"><strong className="text-slate-200">1.1 License Type</strong><br />Subject to your full and continuing compliance with this Agreement, Vœrynth grants you a limited, non-exclusive, non-transferable, revocable license to install and use the Software:</p>
+                        <p className="mb-3"><strong className="text-slate-200">1.1 License Type</strong><br />This software is strictly proprietary and is NOT open source. Subject to your full and continuing compliance with this Agreement and possession of a valid, author-issued authorization, Vœrynth grants you a highly restricted, limited, non-exclusive, non-transferable, revocable license to install and use the Software:</p>
                         <ul className="list-disc pl-6 mb-4 space-y-1">
                             <li>On hardware and a local network that you own or control;</li>
                             <li>Solely for personal, residential or internal use;</li>
@@ -140,7 +140,7 @@ const TermsScreen = ({ onAccept, onDecline }) => {
                         </ul>
                         <p className="mb-4">Your relationship with such providers is solely between you and them.</p>
 
-                        <p className="mb-4"><strong className="text-slate-200">8.2 Open-Source Components</strong><br />The Software may include or depend on open-source software components. Each such component is licensed under its own license terms. These licenses are provided in the documentation or "About" section of the Software. In the event of a direct conflict between this Agreement and an applicable open-source license for a particular component, the open-source license will prevail for that component.</p>
+                        <p className="mb-4"><strong className="text-slate-200">8.2 Open-Source Components</strong><br />While this software itself is strictly proprietary and closed-source, it may include or depend on third-party open-source software components. Each such component is licensed under its own license terms. These licenses are provided in the documentation or "About" section of the Software. Your use of this proprietary software must not be construed as granting any open-source rights to the Vœrynth OS codebase or overriding its proprietary nature.</p>
 
                         <h3 className="text-lg  text-slate-200 mt-6 mb-3">9. Security and Your Responsibilities</h3>
                         <p className="mb-3">You are responsible for:</p>
