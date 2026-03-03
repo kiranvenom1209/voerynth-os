@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production
+dist/
+release/
+android/app/build/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+
+# Misc
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Capacitor
+capacitor-cordova-android-plugins/
+
+# IDEs
+.vscode/
+.idea/
+
+# Keystores (keep private)
+*.keystore
+!debug.keystore
+
+# Temporary files
+/tmp/
