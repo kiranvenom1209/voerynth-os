@@ -81,7 +81,7 @@ const SecurityView = ({ editMode = false, onCardEdit = null }) => {
                             className={`px-6 py-3 rounded  text-xs tracking-widest transition-all
                         ${securitySystem.state === 'on' ? 'bg-red-500/20 text-red-500 border border-red-500/50 hover:bg-red-500 hover:text-white' : 'bg-green-500/20 text-green-500 border border-green-500/50 hover:bg-green-500 hover:text-white'}`}
                         >
-                            {securitySystem.state === 'on' ? 'Disarm System' : 'Arm System'}
+                            {securitySystem.state === 'on' ? 'Disarm' : 'Arm'}
                         </button>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
