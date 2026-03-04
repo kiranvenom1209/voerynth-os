@@ -97,19 +97,9 @@ export const getIconByName = (iconName) => {
 export const renderPersonIcon = (name, props = {}, customIcon = null) => {
   let IconComponent = customIcon ? getIconByName(customIcon) : getPersonIcon(name);
 
-  console.log('🎨 Icon check:', {
-    name,
-    customIcon,
-    IconComponent,
-    type: typeof IconComponent,
-    isFunction: typeof IconComponent === 'function',
-    User,
-    UserType: typeof User
-  });
-
-  // Fallback to User icon if invalid
-  if (!IconComponent || typeof IconComponent !== 'function') {
-    console.warn('⚠️ Using fallback User icon');
+  // Fallback to User icon if invalid. 
+  // In React 19/Lucide, components are often objects (ForwardRef), not functions.
+  if (!IconComponent || (typeof IconComponent !== 'function' && typeof IconComponent !== 'object')) {
     IconComponent = User;
   }
 
