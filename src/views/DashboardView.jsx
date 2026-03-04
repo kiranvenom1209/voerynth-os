@@ -7,7 +7,6 @@ import {
   TransitCard,
   EnergyFlowCard,
   ResidentsCard,
-  EcosystemCard,
   LiveLocationCard,
   GlobalRadarCard
 } from '../components/dashboard';
@@ -43,11 +42,6 @@ const DashboardView = ({ editMode = false, onCardEdit = null }) => {
         <EnergyFlowCard delay={350} editMode={editMode} onEditClick={onCardEdit} cardId="energy-flow" />
         <ResidentsCard delay={400} editMode={editMode} onEditClick={onCardEdit} cardId="residents" />
       </div>
-
-      {/* Smart Home Integrations */}
-      <EcosystemCard delay={450} editMode={editMode} onEditClick={onCardEdit} cardId="ecosystem" />
-
-
     </div>
   );
 };
