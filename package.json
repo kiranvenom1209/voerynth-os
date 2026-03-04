@@ -2,7 +2,7 @@
   "name": "voerynth-os",
   "private": true,
   "type": "module",
-  "version": "5.0.2",
+  "version": "5.0.3",
   "license": "UNLICENSED",
   "description": "Vœrynth Système OS - Bespoke Residential Command Protocol",
   "author": "Vœrynth Système",
