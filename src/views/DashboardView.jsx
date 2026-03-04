@@ -4,7 +4,6 @@ import {
   NeuralInterfaceCard,
   WeatherCard,
   QuickModeSelector,
-  TransitCard,
   EnergyFlowCard,
   ResidentsCard,
   LiveLocationCard,
@@ -26,9 +25,7 @@ const DashboardView = ({ editMode = false, onCardEdit = null }) => {
         <WeatherCard delay={150} editMode={editMode} onEditClick={onCardEdit} cardId="weather" />
       </div>
 
-      {/* Transit & Live Weather */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <TransitCard delay={200} editMode={editMode} onEditClick={onCardEdit} cardId="transit" />
+      <div className="grid grid-cols-1 gap-6">
         <GlobalRadarCard delay={300} editMode={editMode} onEditClick={onCardEdit} cardId="global-radar" />
       </div>
 

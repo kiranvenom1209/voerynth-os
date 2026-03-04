@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useHassEntity } from '../../context/HomeAssistantContext';
 import { useAccentColor } from '../../context/AccentColorContext';
-import { MapPin, AlertCircle, Navigation, Train } from 'lucide-react';
+import { MapPin, AlertCircle, Navigation } from 'lucide-react';
 import Card from '../Card';
 import { MapContainer, TileLayer, Marker, useMap, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -91,9 +91,7 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
     const { hassStates } = useHomeAssistant();
     const [isInteractive, setIsInteractive] = useState(false);
     const [routeData, setRouteData] = useState(null);
-    const [transitData, setTransitData] = useState(null); // { lineName, departure, from, to, direction }
     const routeFetchRef = useRef(null);
-    const transitFetchRef = useRef(null);
 
     // Fetch the person entities
     const kiran = useHassEntity('person.kiran');
@@ -199,120 +197,6 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
         return `${mins} min`;
     };
 
-    // Fetch next train connection from DB transport.rest API
-    // We keep last known good data to prevent the HUD from vanishing on intermittent DB API failures.
-    useEffect(() => {
-        if (!isKiranAway || !kiranLat || !kiranLon || !homeZone) {
-            setTransitData(null);
-            return;
-        }
-
-        if (transitFetchRef.current) clearTimeout(transitFetchRef.current);
-
-        transitFetchRef.current = setTimeout(async () => {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s total timeout
-                const fetchOpts = { signal: controller.signal };
-
-                // 1. Try to find nearest stations first (faster & more reliable for DB API)
-                let fromId, toId;
-                try {
-                    const fromRes = await fetch(`https://v6.db.transport.rest/locations/nearby?latitude=${kiranLat}&longitude=${kiranLon}&results=1&poi=false&addresses=false`, fetchOpts);
-                    const toRes = await fetch(`https://v6.db.transport.rest/locations/nearby?latitude=${homeZone.lat}&longitude=${homeZone.lon}&results=1&poi=false&addresses=false`, fetchOpts);
-
-                    if (fromRes.ok && toRes.ok) {
-                        const fromData = await fromRes.json();
-                        const toData = await toRes.json();
-                        fromId = fromData[0]?.id;
-                        toId = toData[0]?.id;
-                    }
-                } catch (e) {
-                    console.warn('[Tactical] Failed to resolve station IDs');
-                }
-
-                // 2. Build journey params
-                const params = new URLSearchParams({
-                    results: 1,
-                    stopovers: false,
-                    transfers: 5,
-                    transferTime: 0,
-                    nationalExpress: true,
-                    national: true,
-                    regionalExpress: true,
-                    regional: true,
-                    suburban: true,
-                    bus: true,
-                    tram: true,
-                    subway: true,
-                });
-
-                if (fromId && toId) {
-                    params.append('from', fromId);
-                    params.append('to', toId);
-                } else {
-                    params.append('from.latitude', kiranLat);
-                    params.append('from.longitude', kiranLon);
-                    params.append('to.latitude', homeZone.lat);
-                    params.append('to.longitude', homeZone.lon);
-                }
-
-                // 3. Fetch journey
-                let jRes;
-                if (fromId && toId) {
-                    jRes = await fetch(`https://v6.db.transport.rest/journeys?${params}`, fetchOpts);
-                } else {
-                    jRes = await fetch(`https://v5.db.transport.rest/journeys?${params}`, fetchOpts);
-                }
-                clearTimeout(timeoutId);
-
-                if (!jRes.ok) throw new Error(`Journey fetch failed: ${jRes.status}`);
-
-                const rawText = await jRes.text();
-                if (!rawText) throw new Error('Empty response from DB API');
-                const data = JSON.parse(rawText);
-
-                if (data.journeys && data.journeys.length > 0) {
-                    const journey = data.journeys[0];
-
-                    // Prioritize main trains over local feeder buses/trams
-                    const validLegs = journey.legs.filter(l => l.line);
-                    let displayLeg = validLegs.find(l => {
-                        const type = l.line?.productName?.toLowerCase() || '';
-                        return type.includes('rb') || type.includes('re') || type.includes('stb') || type.includes('ice') || type.includes('ic');
-                    });
-
-                    // Fallback to the longest leg or just the first transit leg available
-                    if (!displayLeg && validLegs.length > 0) {
-                        displayLeg = validLegs.reduce((prev, current) => {
-                            const prevDuration = new Date(prev.arrival) - new Date(prev.departure);
-                            const currDuration = new Date(current.arrival) - new Date(current.departure);
-                            return (currDuration > prevDuration) ? current : prev;
-                        });
-                    }
-
-                    if (!displayLeg) displayLeg = validLegs[0];
-
-                    if (displayLeg) {
-                        const depTime = new Date(displayLeg.departure);
-                        setTransitData({
-                            lineName: displayLeg.line?.name || displayLeg.line?.productName || 'Train',
-                            departure: depTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
-                            from: displayLeg.origin?.name?.replace(/,.*/, '') || '—',
-                            to: displayLeg.destination?.name?.replace(/,.*/, '') || '—',
-                            direction: displayLeg.direction?.replace(/,.*/, '') || '',
-                        });
-                    }
-                }
-            } catch (err) {
-                // CRITICAL FIX: DO NOT setTransitData(null) here!
-                // We keep the last known good data visible on screen to prevent flashing/disappearing.
-                console.warn('[Tactical] Transit fetch failed, keeping previous data:', err.message || err);
-            }
-        }, 5000); // 5s debounce (poll very slowly)
-
-        return () => clearTimeout(transitFetchRef.current);
-    }, [isKiranAway, kiranLat, kiranLon, homeZone]);
 
     // Check if a person's state matches a known zone
     const getPersonZoneColor = (state) => {
@@ -532,7 +416,7 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
 
 
 
-            <div className="absolute top-0 left-0 w-full bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-transparent pointer-events-none z-[400] flex justify-between px-4 sm:px-6 py-4 sm:py-5" style={{ height: routeData && isKiranAway ? (transitData ? '9.5rem' : '7.5rem') : '6rem' }}>
+            <div className="absolute top-0 left-0 w-full bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-transparent pointer-events-none z-[400] flex justify-between px-4 sm:px-6 py-4 sm:py-5" style={{ height: routeData && isKiranAway ? '7.5rem' : '6rem' }}>
                 <div className="flex flex-col drop-shadow-2xl">
                     <h3 className="text-white font-serif text-base sm:text-lg tracking-tight flex items-center gap-2">
                         <div className={`p-1 rounded-sm bg-slate-900 border border-slate-800 ${colors.text}`}>
@@ -555,17 +439,6 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
                         </div>
                     )}
 
-                    {/* Next train connection HUD */}
-                    {transitData && isKiranAway && (
-                        <div className="mt-1 flex items-center gap-2 w-fit bg-slate-950/70 backdrop-blur-xl px-2 py-1.5 rounded-sm border border-sky-500/30">
-                            <Train size={9} className="text-sky-400 shrink-0" />
-                            <span className="text-[9px] text-sky-300 font-mono font-bold">{transitData.lineName}</span>
-                            <span className="text-[8px] text-slate-600">│</span>
-                            <span className="text-[9px] text-slate-300 font-mono">{transitData.departure}</span>
-                            <span className="text-[8px] text-slate-600">│</span>
-                            <span className="text-[8px] text-slate-400 font-mono truncate max-w-[100px]">{transitData.from}</span>
-                        </div>
-                    )}
                 </div>
                 <div className="flex gap-1.5 flex-col items-end">
                     {activeMarkers.map(m => {
