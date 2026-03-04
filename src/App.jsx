@@ -723,6 +723,7 @@ const AppContent = () => {
             {/* Mobile Menu Button */}
             <div className="md:hidden fixed top-2 left-2 z-50">
               <button
+                style={{ touchAction: 'none' }}
                 onClick={() => {
                   if (!isLongPressing) {
                     if (editMode) {
@@ -733,8 +734,7 @@ const AppContent = () => {
                     }
                   }
                 }}
-                onTouchStart={(e) => {
-                  e.preventDefault();
+                onTouchStart={() => {
                   setIsLongPressing(false);
                   longPressTimerRef.current = setTimeout(() => {
                     console.log('🔧 Activating edit mode...');
@@ -970,7 +970,7 @@ const AppContent = () => {
         {/* End Dashboard Content */}
 
 
-      </div>
+      </div >
     </>
   );
 };

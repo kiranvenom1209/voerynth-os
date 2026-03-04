@@ -150,7 +150,15 @@ class HAConnection {
 
     disconnect() {
         if (this.socket) {
-            this.socket.close();
+            // Safety: Clear error/close handlers to prevent unwanted triggers during manual disconnect
+            this.socket.onclose = null;
+            this.socket.onerror = null;
+
+            // Only close if not already closed
+            if (this.socket.readyState !== WebSocket.CLOSED) {
+                this.socket.close();
+            }
+            this.socket = null;
         }
     }
 }
