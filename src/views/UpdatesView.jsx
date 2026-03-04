@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Activity, ShieldCheck, Cpu, Wifi, Settings, Music, RefreshCw, AlertTriangle, Download, CheckCircle, X } from 'lucide-react';
 import Card from '../components/Card';
 import { useHomeAssistant } from '../context/HomeAssistantContext';
@@ -80,8 +81,8 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
             }
             // ESPHome device firmware updates
             else if (entityIdLower.includes('firmware') ||
-                     nameLower.includes('firmware') ||
-                     entityIdLower.includes('esphome') && !entityIdLower.includes('_update')) {
+                nameLower.includes('firmware') ||
+                entityIdLower.includes('esphome') && !entityIdLower.includes('_update')) {
                 categories.esphome.push({
                     id,
                     name,
@@ -196,7 +197,7 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
             </div>
 
             {/* VŒRYNTH OS Update Modal */}
-            {showVoerynthModal && (
+            {showVoerynthModal && createPortal(
                 <div
                     className="fixed inset-0 z-[9999] flex items-start justify-center bg-slate-950/80 backdrop-blur-md animate-[fadeIn_0.3s_ease-out] p-4 overflow-y-auto"
                     onClick={() => setShowVoerynthModal(false)}
@@ -248,11 +249,11 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
                                 <div className="bg-slate-800/50 rounded-xl p-4 space-y-3">
                                     <div className="flex justify-between items-center">
                                         <span className="text-xs text-slate-400">Current Version</span>
-                                        <span className={`text-xs ${colors.text400}`}>5.0.1</span>
+                                        <span className={`text-xs ${colors.text400}`}>5.0.2</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-xs text-slate-400">Release Date</span>
-                                        <span className="text-xs text-slate-300">December 11, 2025</span>
+                                        <span className="text-xs text-slate-300">March 4, 2026</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-xs text-slate-400">Build</span>
@@ -283,7 +284,8 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
                             </div>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* System Updates */}
@@ -315,8 +317,8 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
                                     <div className="flex items-center justify-between mb-3">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-500 ${isUpdating ? 'bg-blue-500/20 text-blue-400' :
-                                                    hasUpdate ? 'bg-amber-500/20 text-amber-400' :
-                                                        'bg-slate-800 text-slate-500'
+                                                hasUpdate ? 'bg-amber-500/20 text-amber-400' :
+                                                    'bg-slate-800 text-slate-500'
                                                 }`}>
                                                 {isUpdating ? (
                                                     <RefreshCw size={18} className="animate-spin" />
@@ -404,8 +406,8 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
                                     <div className="flex items-center justify-between mb-3">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-500 ${isUpdating ? 'bg-blue-500/20 text-blue-400' :
-                                                    hasUpdate ? 'bg-amber-500/20 text-amber-400' :
-                                                        'bg-slate-800 text-slate-500'
+                                                hasUpdate ? 'bg-amber-500/20 text-amber-400' :
+                                                    'bg-slate-800 text-slate-500'
                                                 }`}>
                                                 {isUpdating ? (
                                                     <RefreshCw size={18} className="animate-spin" />
@@ -493,8 +495,8 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
                                     <div className="flex items-center justify-between mb-3">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-500 ${isUpdating ? 'bg-blue-500/20 text-blue-400' :
-                                                    hasUpdate ? 'bg-amber-500/20 text-amber-400' :
-                                                        'bg-slate-800 text-slate-500'
+                                                hasUpdate ? 'bg-amber-500/20 text-amber-400' :
+                                                    'bg-slate-800 text-slate-500'
                                                 }`}>
                                                 {isUpdating ? (
                                                     <RefreshCw size={18} className="animate-spin" />
@@ -582,8 +584,8 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
                                     <div className="flex items-center justify-between mb-3">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-500 ${isUpdating ? 'bg-blue-500/20 text-blue-400' :
-                                                    hasUpdate ? 'bg-amber-500/20 text-amber-400' :
-                                                        'bg-slate-800 text-slate-500'
+                                                hasUpdate ? 'bg-amber-500/20 text-amber-400' :
+                                                    'bg-slate-800 text-slate-500'
                                                 }`}>
                                                 {isUpdating ? (
                                                     <RefreshCw size={18} className="animate-spin" />

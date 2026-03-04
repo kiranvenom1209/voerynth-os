@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useHassEntity } from '../../context/HomeAssistantContext';
 import { useAccentColor } from '../../context/AccentColorContext';
-import { MapPin, AlertCircle, X } from 'lucide-react';
+import { MapPin, AlertCircle, Navigation, Train } from 'lucide-react';
 import Card from '../Card';
-import { MapContainer, TileLayer, Marker, useMap, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useHomeAssistant } from '../../context/HomeAssistantContext';
@@ -60,23 +60,40 @@ const MapInteractionHandler = ({ isInteractive }) => {
     return null;
 };
 
+// Curated palette for zones that don't match a keyword
+const ZONE_PALETTE = ['#06b6d4', '#8b5cf6', '#ec4899', '#14b8a6', '#a78bfa', '#f472b6', '#22d3ee', '#818cf8'];
+
 // Helper to determine zone color based on name/purpose
-const getZoneColor = (name, accentHex) => {
+// Only zone.home (your default HA home) gets emerald; friends' homes get unique colors
+const getZoneColor = (name, zoneId) => {
     const n = name.toLowerCase();
-    if (n === 'home') return '#10b981'; // Emerald for home
-    if (n === 'work') return '#f59e0b'; // Amber for work
+    // Only YOUR home zone gets emerald
+    if (n === 'home' && (!zoneId || zoneId === 'zone.home')) return '#10b981'; // Emerald
+    if (n === 'work') return '#f59e0b'; // Amber
     if (n === 'school' || n === 'university' || n === 'college') return '#8b5cf6'; // Purple
     if (n.includes('gym') || n.includes('fitness') || n.includes('sport')) return '#ec4899'; // Pink
     if (n.includes('store') || n.includes('shop') || n.includes('mall')) return '#3b82f6'; // Blue
+    if (n.includes('park') || n.includes('garden')) return '#22c55e'; // Green
+    if (n.includes('hospital') || n.includes('doctor') || n.includes('clinic')) return '#ef4444'; // Red
+    if (n.includes('church') || n.includes('mosque') || n.includes('temple')) return '#a78bfa'; // Violet
+    if (n.includes('restaurant') || n.includes('cafe') || n.includes('food')) return '#fb923c'; // Orange
+    if (n.includes('office')) return '#0ea5e9'; // Sky blue
 
-    // Fallback to the current theme hex or a default tactical cyan
-    return accentHex || '#06b6d4';
+    // Hash the name (+ zoneId for uniqueness) to pick a consistent color from the palette
+    const hashStr = zoneId || n;
+    let hash = 0;
+    for (let i = 0; i < hashStr.length; i++) hash = hashStr.charCodeAt(i) + ((hash << 5) - hash);
+    return ZONE_PALETTE[Math.abs(hash) % ZONE_PALETTE.length];
 };
 
 const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, cardId = null }) => {
     const { colors } = useAccentColor();
     const { hassStates } = useHomeAssistant();
     const [isInteractive, setIsInteractive] = useState(false);
+    const [routeData, setRouteData] = useState(null);
+    const [transitData, setTransitData] = useState(null); // { lineName, departure, from, to, direction }
+    const routeFetchRef = useRef(null);
+    const transitFetchRef = useRef(null);
 
     // Fetch the person entities
     const kiran = useHassEntity('person.kiran');
@@ -126,19 +143,207 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
             }));
     }, [kiran, danny, ayanthiara]);
 
-    // Create customized HTML markers (glowing dots matching the accent color)
+    // Determine if Kiran is away from home
+    const isKiranAway = kiran?.state && kiran.state.toLowerCase() !== 'home';
+    const kiranLat = kiran?.attributes?.latitude;
+    const kiranLon = kiran?.attributes?.longitude;
+    const homeZone = zones.find(z => z.id === 'zone.home');
+
+    // Fetch route from OSRM when Kiran is away from home
+    useEffect(() => {
+        // Clear route when home
+        if (!isKiranAway || !kiranLat || !kiranLon || !homeZone) {
+            setRouteData(null);
+            return;
+        }
+
+        // Debounce to avoid excessive API calls
+        if (routeFetchRef.current) clearTimeout(routeFetchRef.current);
+
+        routeFetchRef.current = setTimeout(async () => {
+            try {
+                const url = `https://router.project-osrm.org/route/v1/driving/${kiranLon},${kiranLat};${homeZone.lon},${homeZone.lat}?overview=full&geometries=geojson`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.routes && data.routes.length > 0) {
+                    const route = data.routes[0];
+                    // OSRM returns [lon, lat] — flip to [lat, lon] for Leaflet
+                    const coords = route.geometry.coordinates.map(c => [c[1], c[0]]);
+                    setRouteData({
+                        coords,
+                        distance: route.distance, // meters
+                        duration: route.duration   // seconds
+                    });
+                }
+            } catch (err) {
+                console.warn('[Tactical] Route fetch failed:', err);
+                setRouteData(null);
+            }
+        }, 2000); // 2s debounce
+
+        return () => clearTimeout(routeFetchRef.current);
+    }, [isKiranAway, kiranLat, kiranLon, homeZone]);
+
+    // Format helpers for route HUD
+    const formatDistance = (meters) => {
+        if (!meters) return '--';
+        if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
+        return `${Math.round(meters)} m`;
+    };
+    const formatDuration = (seconds) => {
+        if (!seconds) return '--';
+        const hrs = Math.floor(seconds / 3600);
+        const mins = Math.round((seconds % 3600) / 60);
+        if (hrs > 0) return `${hrs}h ${mins}m`;
+        return `${mins} min`;
+    };
+
+    // Fetch next train connection from DB transport.rest API
+    // We keep last known good data to prevent the HUD from vanishing on intermittent DB API failures.
+    useEffect(() => {
+        if (!isKiranAway || !kiranLat || !kiranLon || !homeZone) {
+            setTransitData(null);
+            return;
+        }
+
+        if (transitFetchRef.current) clearTimeout(transitFetchRef.current);
+
+        transitFetchRef.current = setTimeout(async () => {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s total timeout
+                const fetchOpts = { signal: controller.signal };
+
+                // 1. Try to find nearest stations first (faster & more reliable for DB API)
+                let fromId, toId;
+                try {
+                    const fromRes = await fetch(`https://v6.db.transport.rest/locations/nearby?latitude=${kiranLat}&longitude=${kiranLon}&results=1&poi=false&addresses=false`, fetchOpts);
+                    const toRes = await fetch(`https://v6.db.transport.rest/locations/nearby?latitude=${homeZone.lat}&longitude=${homeZone.lon}&results=1&poi=false&addresses=false`, fetchOpts);
+
+                    if (fromRes.ok && toRes.ok) {
+                        const fromData = await fromRes.json();
+                        const toData = await toRes.json();
+                        fromId = fromData[0]?.id;
+                        toId = toData[0]?.id;
+                    }
+                } catch (e) {
+                    console.warn('[Tactical] Failed to resolve station IDs');
+                }
+
+                // 2. Build journey params
+                const params = new URLSearchParams({
+                    results: 1,
+                    stopovers: false,
+                    transfers: 5,
+                    transferTime: 0,
+                    nationalExpress: true,
+                    national: true,
+                    regionalExpress: true,
+                    regional: true,
+                    suburban: true,
+                    bus: true,
+                    tram: true,
+                    subway: true,
+                });
+
+                if (fromId && toId) {
+                    params.append('from', fromId);
+                    params.append('to', toId);
+                } else {
+                    params.append('from.latitude', kiranLat);
+                    params.append('from.longitude', kiranLon);
+                    params.append('to.latitude', homeZone.lat);
+                    params.append('to.longitude', homeZone.lon);
+                }
+
+                // 3. Fetch journey
+                let jRes;
+                if (fromId && toId) {
+                    jRes = await fetch(`https://v6.db.transport.rest/journeys?${params}`, fetchOpts);
+                } else {
+                    jRes = await fetch(`https://v5.db.transport.rest/journeys?${params}`, fetchOpts);
+                }
+                clearTimeout(timeoutId);
+
+                if (!jRes.ok) throw new Error(`Journey fetch failed: ${jRes.status}`);
+
+                const rawText = await jRes.text();
+                if (!rawText) throw new Error('Empty response from DB API');
+                const data = JSON.parse(rawText);
+
+                if (data.journeys && data.journeys.length > 0) {
+                    const journey = data.journeys[0];
+
+                    // Prioritize main trains over local feeder buses/trams
+                    const validLegs = journey.legs.filter(l => l.line);
+                    let displayLeg = validLegs.find(l => {
+                        const type = l.line?.productName?.toLowerCase() || '';
+                        return type.includes('rb') || type.includes('re') || type.includes('stb') || type.includes('ice') || type.includes('ic');
+                    });
+
+                    // Fallback to the longest leg or just the first transit leg available
+                    if (!displayLeg && validLegs.length > 0) {
+                        displayLeg = validLegs.reduce((prev, current) => {
+                            const prevDuration = new Date(prev.arrival) - new Date(prev.departure);
+                            const currDuration = new Date(current.arrival) - new Date(current.departure);
+                            return (currDuration > prevDuration) ? current : prev;
+                        });
+                    }
+
+                    if (!displayLeg) displayLeg = validLegs[0];
+
+                    if (displayLeg) {
+                        const depTime = new Date(displayLeg.departure);
+                        setTransitData({
+                            lineName: displayLeg.line?.name || displayLeg.line?.productName || 'Train',
+                            departure: depTime.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
+                            from: displayLeg.origin?.name?.replace(/,.*/, '') || '—',
+                            to: displayLeg.destination?.name?.replace(/,.*/, '') || '—',
+                            direction: displayLeg.direction?.replace(/,.*/, '') || '',
+                        });
+                    }
+                }
+            } catch (err) {
+                // CRITICAL FIX: DO NOT setTransitData(null) here!
+                // We keep the last known good data visible on screen to prevent flashing/disappearing.
+                console.warn('[Tactical] Transit fetch failed, keeping previous data:', err.message || err);
+            }
+        }, 5000); // 5s debounce (poll very slowly)
+
+        return () => clearTimeout(transitFetchRef.current);
+    }, [isKiranAway, kiranLat, kiranLon, homeZone]);
+
+    // Check if a person's state matches a known zone
+    const getPersonZoneColor = (state) => {
+        const stateLower = state.toLowerCase();
+        if (stateLower === 'not_home' || stateLower === 'unavailable' || stateLower === 'unknown') {
+            return null; // Traveling / not in any zone
+        }
+        // Check if state matches any defined zone
+        const matchedZone = zones.find(z => z.name.toLowerCase() === stateLower || z.id === `zone.${stateLower}`);
+        if (matchedZone) {
+            return getZoneColor(matchedZone.name, matchedZone.id);
+        }
+        // State is a zone name we know about (home, work, etc.) even if zone entity isn't loaded yet
+        const knownZoneColor = getZoneColor(stateLower, `zone.${stateLower}`);
+        if (knownZoneColor && stateLower !== 'not_home') {
+            return knownZoneColor;
+        }
+        return null; // Unknown state = treat as traveling
+    };
+
+    // Create customized HTML markers — glow in zone color, red when traveling
     const createCustomIcon = (name, state) => {
-        const isHome = state.toLowerCase() === 'home';
-        // Use emerald for home, accent color for away
-        const glowColor = isHome ? 'rgb(16, 185, 129)' : colors.glow.split(' ')[0] || '#3b82f6';
-        const ringClass = isHome ? 'border-emerald-500' : colors.border;
-        const bgClass = isHome ? 'bg-emerald-500/80' : colors.bg.split(' ')[0] || 'bg-blue-500/80';
+        const zoneColor = getPersonZoneColor(state);
+        const isTraveling = !zoneColor;
+        const markerColor = isTraveling ? '#3b82f6' : zoneColor; // Blue when traveling
 
         const htmlString = `
       <div class="relative flex items-center justify-center pointer-events-none group">
-        <div class="absolute -inset-3 rounded-full blur-xl opacity-60 animate-pulse" style="background-color: ${glowColor}"></div>
-        <div class="absolute -inset-1 rounded-full blur-sm opacity-40 shadow-[0_0_15px_rgba(255,255,255,0.3)]"></div>
-        <div class="w-7 h-7 rounded-full border-2 ${ringClass} bg-slate-950 shadow-2xl flex items-center justify-center z-10 overflow-hidden backdrop-blur-sm">
+        ${!isTraveling ? `<div class="absolute -inset-3 rounded-full blur-xl opacity-60 animate-pulse" style="background-color: ${markerColor}"></div>
+        <div class="absolute -inset-1 rounded-full blur-sm opacity-40 shadow-[0_0_15px_rgba(255,255,255,0.3)]"></div>` : ''}
+        <div class="w-7 h-7 rounded-full border-2 bg-slate-950 shadow-2xl flex items-center justify-center z-10 overflow-hidden backdrop-blur-sm" style="border-color: ${markerColor}">
              <span class="text-[11px] font-black text-white uppercase tracking-tighter drop-shadow-md">${name.substring(0, 1)}</span>
         </div>
         <div class="absolute top-9 bg-slate-950/90 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-bold text-white border border-slate-700/50 whitespace-nowrap shadow-2xl skew-x-[-10deg] transition-all group-hover:skew-x-0">
@@ -149,7 +354,7 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
 
         return L.divIcon({
             html: htmlString,
-            className: 'custom-leaflet-marker', // Keeps default background transparent
+            className: 'custom-leaflet-marker',
             iconSize: [28, 28],
             iconAnchor: [14, 14],
         });
@@ -233,7 +438,7 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
 
                         {/* Render All Zones as styled circles */}
                         {zones.map(zone => {
-                            const zoneColor = getZoneColor(zone.name, colors.hex);
+                            const zoneColor = getZoneColor(zone.name, zone.id);
                             return (
                                 <Circle
                                     key={zone.id}
@@ -250,6 +455,20 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
                                 />
                             );
                         })}
+
+                        {/* Route polyline to home (amber dashed) */}
+                        {routeData && routeData.coords.length > 0 && (
+                            <Polyline
+                                positions={routeData.coords}
+                                pathOptions={{
+                                    color: '#f59e0b',
+                                    weight: 1.5,
+                                    opacity: 0.5,
+                                    lineCap: 'round',
+                                    lineJoin: 'round'
+                                }}
+                            />
+                        )}
 
                         {activeMarkers.map((marker) => (
                             <Marker
@@ -313,10 +532,9 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
 
 
 
-            {/* Absolute overlay over the map to show top-nav info visually cleanly */}
-            <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-transparent pointer-events-none z-[400] flex justify-between px-6 py-5">
+            <div className="absolute top-0 left-0 w-full bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-transparent pointer-events-none z-[400] flex justify-between px-4 sm:px-6 py-4 sm:py-5" style={{ height: routeData && isKiranAway ? (transitData ? '9.5rem' : '7.5rem') : '6rem' }}>
                 <div className="flex flex-col drop-shadow-2xl">
-                    <h3 className="text-white font-serif text-lg tracking-tight flex items-center gap-2.5">
+                    <h3 className="text-white font-serif text-base sm:text-lg tracking-tight flex items-center gap-2">
                         <div className={`p-1 rounded-sm bg-slate-900 border border-slate-800 ${colors.text}`}>
                             <MapPin size={14} />
                         </div>
@@ -326,14 +544,41 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
                         <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></div>
                         <span className="text-[9px] text-slate-400 font-mono tracking-[0.2em] uppercase opacity-70">Telemetry Active // Global Link</span>
                     </div>
+
+                    {/* Route-to-Home tactical HUD — compact */}
+                    {routeData && isKiranAway && (
+                        <div className="mt-2 flex items-center gap-2 w-fit bg-slate-950/70 backdrop-blur-xl px-2 py-1.5 rounded-sm border border-amber-500/30">
+                            <Navigation size={9} className="text-amber-500 shrink-0" />
+                            <span className="text-[9px] text-amber-400/90 font-mono font-bold">{formatDistance(routeData.distance)}</span>
+                            <span className="text-[8px] text-slate-600">│</span>
+                            <span className="text-[9px] text-amber-400/90 font-mono font-bold">{formatDuration(routeData.duration)}</span>
+                        </div>
+                    )}
+
+                    {/* Next train connection HUD */}
+                    {transitData && isKiranAway && (
+                        <div className="mt-1 flex items-center gap-2 w-fit bg-slate-950/70 backdrop-blur-xl px-2 py-1.5 rounded-sm border border-sky-500/30">
+                            <Train size={9} className="text-sky-400 shrink-0" />
+                            <span className="text-[9px] text-sky-300 font-mono font-bold">{transitData.lineName}</span>
+                            <span className="text-[8px] text-slate-600">│</span>
+                            <span className="text-[9px] text-slate-300 font-mono">{transitData.departure}</span>
+                            <span className="text-[8px] text-slate-600">│</span>
+                            <span className="text-[8px] text-slate-400 font-mono truncate max-w-[100px]">{transitData.from}</span>
+                        </div>
+                    )}
                 </div>
                 <div className="flex gap-1.5 flex-col items-end">
-                    {activeMarkers.map(m => (
-                        <div key={m.id} className="flex items-center gap-2.5 bg-slate-950/60 backdrop-blur-md px-3 py-1 rounded-full border border-slate-800/50 shadow-xl pointer-events-auto transition-all hover:border-slate-600/50 hover:bg-slate-900/80">
-                            <span className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)] ${m.state.toLowerCase() === 'home' ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : colors.glow.split(' ')[0] || 'bg-blue-500'}`}></span>
-                            <span className="text-[10px] text-slate-200 font-kumbh font-medium tracking-tight uppercase">${m.name}</span>
-                        </div>
-                    ))}
+                    {activeMarkers.map(m => {
+                        const zc = getPersonZoneColor(m.state);
+                        const isTraveling = !zc;
+                        const dotColor = isTraveling ? '#3b82f6' : zc;
+                        return (
+                            <div key={m.id} className="flex items-center gap-2.5 bg-slate-950/60 backdrop-blur-md px-3 py-1 rounded-full border border-slate-800/50 shadow-xl pointer-events-auto transition-all hover:border-slate-600/50 hover:bg-slate-900/80">
+                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor, boxShadow: isTraveling ? 'none' : `0 0 10px ${dotColor}` }}></span>
+                                <span className="text-[10px] text-slate-200 font-kumbh font-medium tracking-tight uppercase">${m.name}</span>
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </Card>

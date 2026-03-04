@@ -84,8 +84,8 @@ const AdvancedSettingsView = ({
         >
             <div
                 className={`absolute top-0.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full transition-all duration-300 shadow-md ${enabled
-                        ? `left-5 sm:left-7 ${colors.bgSolid} ${colors.shadowGlow}`
-                        : 'left-0.5 bg-slate-300'
+                    ? `left-5 sm:left-7 ${colors.bgSolid} ${colors.shadowGlow}`
+                    : 'left-0.5 bg-slate-300'
                     }`}
             />
         </button>
@@ -476,11 +476,11 @@ const AdvancedSettingsView = ({
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                             <span className="text-slate-500">Version</span>
-                            <p className="text-slate-200 font-mono">v5.0.1</p>
+                            <p className="text-slate-200 font-mono">v5.0.2</p>
                         </div>
                         <div>
                             <span className="text-slate-500">Build</span>
-                            <p className="text-slate-200 font-mono">2025.12.11</p>
+                            <p className="text-slate-200 font-mono">2026.03.04</p>
                         </div>
                         <div>
                             <span className="text-slate-500">Platform</span>
@@ -530,8 +530,8 @@ const AdvancedSettingsView = ({
                                         setAnimationSpeedOpen(false);
                                     }}
                                     className={`w-full p-4 text-left rounded-lg transition-all duration-300 ${animationSpeed === speed
-                                            ? `${colors.bgSoft} ${colors.text400} border ${colors.borderSoft}`
-                                            : 'text-slate-200 hover:bg-slate-800/50'
+                                        ? `${colors.bgSoft} ${colors.text400} border ${colors.borderSoft}`
+                                        : 'text-slate-200 hover:bg-slate-800/50'
                                         }`}
                                 >
                                     <div className="font-medium">
@@ -574,8 +574,8 @@ const AdvancedSettingsView = ({
                                         setParticleCountOpen(false);
                                     }}
                                     className={`w-full p-4 text-left rounded-lg transition-all duration-300 ${particleCount === count
-                                            ? `${colors.bgSoft} ${colors.text400} border ${colors.borderSoft}`
-                                            : 'text-slate-200 hover:bg-slate-800/50'
+                                        ? `${colors.bgSoft} ${colors.text400} border ${colors.borderSoft}`
+                                        : 'text-slate-200 hover:bg-slate-800/50'
                                         }`}
                                 >
                                     <div className="font-medium">
@@ -623,8 +623,8 @@ const AdvancedSettingsView = ({
                                         setScreenSaverTimeoutOpen(false);
                                     }}
                                     className={`w-full p-4 text-left rounded-lg transition-all duration-300 ${screenSaverTimeout === value
-                                            ? `${colors.bgSoft} border ${colors.borderSoft}`
-                                            : 'bg-slate-800/50 border border-slate-700 hover:bg-slate-700/50'
+                                        ? `${colors.bgSoft} border ${colors.borderSoft}`
+                                        : 'bg-slate-800/50 border border-slate-700 hover:bg-slate-700/50'
                                         }`}
                                 >
                                     <div className="font-medium">{label}</div>
@@ -658,8 +658,8 @@ const AdvancedSettingsView = ({
                                         setScreenSaverBrightnessOpen(false);
                                     }}
                                     className={`w-full p-4 text-left rounded-lg transition-all duration-300 ${screenSaverBrightness === value
-                                            ? `${colors.bgSoft} border ${colors.borderSoft}`
-                                            : 'bg-slate-800/50 border border-slate-700 hover:bg-slate-700/50'
+                                        ? `${colors.bgSoft} border ${colors.borderSoft}`
+                                        : 'bg-slate-800/50 border border-slate-700 hover:bg-slate-700/50'
                                         }`}
                                 >
                                     <div className="font-medium">{value}%</div>
@@ -697,10 +697,10 @@ const AdvancedSettingsView = ({
                                 <CompanyLogo className={`w-16 h-16 ${colors.text}`} />
                             </div>
                             <h1 className="font-serif text-2xl text-slate-100 tracking-[0.2em] mb-2">VŒRYNTH SYSTÈME OS</h1>
-                            <p className={`${colors.text}/80 text-sm tracking-[0.3em]`}>v5.0.1</p>
+                            <p className={`${colors.text}/80 text-sm tracking-[0.3em]`}>v5.0.2</p>
                             <div className="mt-4 flex justify-center gap-6 text-xs text-slate-500">
                                 <div>
-                                    <span className="text-slate-600">Build:</span> <span className="text-slate-400 font-mono">2025.11.25</span>
+                                    <span className="text-slate-600">Build:</span> <span className="text-slate-400 font-mono">2026.03.04</span>
                                 </div>
                                 <div>
                                     <span className="text-slate-600">Platform:</span> <span className="text-slate-400 font-mono">React 19.2</span>
@@ -715,7 +715,6 @@ const AdvancedSettingsView = ({
                                 <h3 className={`${colors.text} font-serif text-base mb-3 tracking-wide`}>Created by</h3>
                                 <div className="space-y-2 text-slate-300">
                                     <p><span className="text-slate-100 font-medium">Kiran Karthikeyan Achari</span> – System Architect & Lead Developer</p>
-                                    <p><span className="text-slate-100 font-medium">Danny Sneham</span> – Infrastructure, Automation & Systems Engineering</p>
                                 </div>
                             </div>
 
@@ -730,7 +729,7 @@ const AdvancedSettingsView = ({
                             {/* Copyright */}
                             <div>
                                 <h3 className={`${colors.text} font-serif text-base mb-3 tracking-wide`}>Copyright</h3>
-                                <p className="text-slate-300">© 2024–2025 Vœrynth Systèmé. All rights reserved.</p>
+                                <p className="text-slate-300">© 2026 Vœrynth Systèmé. All rights reserved.</p>
                             </div>
 
                             {/* Technology Credits */}

@@ -5,7 +5,7 @@ import { useHassEntity } from '../context/HomeAssistantContext';
 
 const EnergyView = ({ particleCount = 3, editMode = false, onCardEdit = null }) => {
     // Get daily energy from utility meter helpers (in kWh)
-    const dailyEnergyIn = useHassEntity('sensor.daily_energy_import', { state: 0 });
+    const dailyEnergyIn = useHassEntity('sensor.eleused', { state: 0 });
     const dailyEnergyOut = useHassEntity('sensor.daily_energy_export', { state: 0 });
 
     const co2Intensity = useHassEntity('sensor.electricity_maps_co2_intensity', { state: 0 });

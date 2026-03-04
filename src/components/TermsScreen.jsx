@@ -41,7 +41,7 @@ const TermsScreen = ({ onAccept, onDecline }) => {
                 <div className="bg-slate-900/40 backdrop-blur border border-slate-800/50 rounded-2xl p-8 mb-6 max-h-[60vh] overflow-y-auto" ref={termsRef} onScroll={handleScroll}>
                     <div className="prose prose-invert prose-sm max-w-none text-slate-300 leading-relaxed font-kumbh">
                         <h2 className="text-xl font-serif text-slate-100 mb-4">VŒRYNTH SYSTÈME OS<br />END USER LICENSE AGREEMENT & TERMS OF USE</h2>
-                        <p className="text-xs text-slate-400 mb-6">Last updated: 25 November 2025</p>
+                        <p className="text-xs text-slate-400 mb-6">Last updated: 4 March 2026</p>
 
                         <p className="mb-4">This End User License Agreement and Terms of Use ("Agreement") is a legal contract between you ("you", "user") and Vœrynth Système, a software company based in Schmalkalden, Thuringia, Germany ("Vœrynth", "we", "us", "our"), governing your use of Vœrynth Système OS and any related software, interfaces, documentation, updates and services (collectively, the "Software").</p>
 

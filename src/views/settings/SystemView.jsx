@@ -15,14 +15,75 @@ const SystemView = () => {
 
   // Get system info from sensor entities
   const systemInfo = useMemo(() => {
-    if (!hassStates) return {};
-    
-    const info = {};
-    Object.values(hassStates).forEach(entity => {
-      if (entity.entity_id.includes('system_monitor') || entity.entity_id.includes('version')) {
-        info[entity.entity_id] = entity;
+    const info = {
+      core_version: '2026.03.04',
+      supervisor_version: '2026.03.04',
+      os_version: 'Voerynth OS 11.2',
+      uptime: '7 days, 14 hours',
+      hw_processor: 'Intel Core i5',
+      hw_memory: '2.4 GB / 8.0 GB (30%)',
+      hw_disk: '45.2 GB / 128 GB (35%)',
+      hw_temp: '45°C',
+      ip: '192.168.1.100',
+      hostname: 'voerynth.local',
+      mac: '00:1A:2B:3C:4D:5E',
+      db_size: '1.2 GB',
+      status: 'Unknown'
+    };
+
+    if (!hassStates || Object.keys(hassStates).length === 0) return info;
+
+    // Core HA versions
+    const coreV = hassStates['update.home_assistant_core']?.attributes?.installed_version;
+    if (coreV) info.core_version = coreV;
+
+    const supervisorV = hassStates['update.home_assistant_supervisor']?.attributes?.installed_version;
+    if (supervisorV) info.supervisor_version = supervisorV;
+
+    const osV = hassStates['update.home_assistant_operating_system']?.attributes?.installed_version;
+    if (osV) info.os_version = osV;
+
+    // Uptime extraction
+    const bootSensor = Object.values(hassStates).find(e => e.entity_id.includes('last_boot') || e.entity_id.includes('uptime'));
+    if (bootSensor) {
+      const dateVal = Date.parse(bootSensor.state);
+      if (!isNaN(dateVal) && dateVal > 100000) {
+        const diffMs = Date.now() - dateVal;
+        const d = Math.floor(diffMs / 86400000);
+        const h = Math.floor((diffMs % 86400000) / 3600000);
+        info.uptime = d > 0 ? `${d} days, ${h} hours` : `${h} hours`;
+      } else {
+        info.uptime = bootSensor.state;
       }
-    });
+    }
+
+    // Hardware sensors
+    const processorUse = Object.values(hassStates).find(e => e.entity_id.includes('processor_use'))?.state;
+    const memoryFree = Object.values(hassStates).find(e => e.entity_id.includes('memory_free'))?.state;
+    const diskUse = Object.values(hassStates).find(e => e.entity_id.includes('disk_use_percent'))?.state;
+    const cpuTemp = Object.values(hassStates).find(e => e.entity_id.includes('cpu_temperature'))?.state ||
+      Object.values(hassStates).find(e => e.entity_id.includes('temperature') && e.entity_id.includes('cpu'))?.state;
+
+    if (processorUse) info.hw_processor = `${processorUse}% Usage`;
+    if (memoryFree) info.hw_memory = `${memoryFree} MB Free`;
+    if (diskUse) info.hw_disk = `${diskUse}% Used`;
+    if (cpuTemp) info.hw_temp = `${cpuTemp}°C`;
+
+    // Network Data
+    const ipAddress = Object.values(hassStates).find(e => e.entity_id.includes('ipv4_address') || e.entity_id.includes('ip_address'))?.state;
+    const hostname = Object.values(hassStates).find(e => e.entity_id.includes('hostname'))?.state;
+    const macAddress = Object.values(hassStates).find(e => e.entity_id.includes('mac_address'))?.state;
+
+    if (ipAddress) info.ip = ipAddress;
+    if (hostname) info.hostname = hostname;
+    if (macAddress) info.mac = macAddress;
+
+    // Database Data
+    const dbSize = Object.values(hassStates).find(e => e.entity_id.includes('database_size'))?.state;
+    if (dbSize) info.db_size = `${dbSize} MB`;
+
+    info.status = 'Healthy';
+
     return info;
   }, [hassStates]);
 
@@ -32,10 +93,10 @@ const SystemView = () => {
       title: 'General',
       icon: Server,
       items: [
-        { label: 'System Version', value: '2024.12.0' },
-        { label: 'Installation Type', value: 'Voerynth OS' },
-        { label: 'Supervisor Version', value: '2024.11.4' },
-        { label: 'Operating System', value: 'Voerynth OS 11.2' }
+        { label: 'System Version', value: systemInfo.core_version },
+        { label: 'Installation Type', value: 'Voerynth OS / HAOS' },
+        { label: 'Supervisor Version', value: systemInfo.supervisor_version },
+        { label: 'Operating System', value: systemInfo.os_version }
       ]
     },
     {
@@ -43,10 +104,10 @@ const SystemView = () => {
       title: 'Hardware',
       icon: Cpu,
       items: [
-        { label: 'Processor', value: 'Intel Core i5' },
-        { label: 'Memory Usage', value: '2.4 GB / 8.0 GB (30%)' },
-        { label: 'Disk Usage', value: '45.2 GB / 128 GB (35%)' },
-        { label: 'CPU Temperature', value: '45°C' }
+        { label: 'Processor', value: systemInfo.hw_processor },
+        { label: 'Memory Status', value: systemInfo.hw_memory },
+        { label: 'Disk Usage', value: systemInfo.hw_disk },
+        { label: 'CPU Temperature', value: systemInfo.hw_temp }
       ]
     },
     {
@@ -54,9 +115,9 @@ const SystemView = () => {
       title: 'Network',
       icon: Network,
       items: [
-        { label: 'IP Address', value: '192.168.1.100' },
-        { label: 'Hostname', value: 'voerynth.local' },
-        { label: 'MAC Address', value: '00:1A:2B:3C:4D:5E' },
+        { label: 'IP Address', value: systemInfo.ip },
+        { label: 'Hostname', value: systemInfo.hostname },
+        { label: 'MAC Address', value: systemInfo.mac },
         { label: 'Network Speed', value: '1000 Mbps' }
       ]
     },
@@ -66,7 +127,7 @@ const SystemView = () => {
       icon: Database,
       items: [
         { label: 'Database Engine', value: 'SQLite' },
-        { label: 'Database Size', value: '1.2 GB' },
+        { label: 'Database Size', value: systemInfo.db_size },
         { label: 'Recorder Purge', value: 'Keep 10 days' },
         { label: 'Last Purge', value: '2 hours ago' }
       ]
@@ -131,7 +192,7 @@ const SystemView = () => {
                 </div>
                 <h2 className="text-lg font-semibold text-slate-200">{section.title}</h2>
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {section.items.map((item, idx) => (
                   <div key={idx} className="flex justify-between items-center py-2 border-b border-slate-700/50 last:border-0">
@@ -153,19 +214,19 @@ const SystemView = () => {
           </div>
           <h2 className="text-lg font-semibold text-slate-200">System Health</h2>
         </div>
-        
+
         <div className="space-y-3">
           <div className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg">
             <span className="text-sm text-slate-300">Overall Status</span>
-            <span className="text-sm text-green-400 font-medium">Healthy</span>
+            <span className={`text-sm ${systemInfo.status === 'Healthy' ? 'text-green-400' : 'text-amber-400'} font-medium`}>{systemInfo.status}</span>
           </div>
           <div className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg">
             <span className="text-sm text-slate-300">Last Check</span>
-            <span className="text-sm text-slate-400">2 minutes ago</span>
+            <span className="text-sm text-slate-400">Just now</span>
           </div>
           <div className="flex items-center justify-between p-3 bg-slate-900/50 rounded-lg">
             <span className="text-sm text-slate-300">Uptime</span>
-            <span className="text-sm text-slate-400">7 days, 14 hours</span>
+            <span className="text-sm text-slate-400">{systemInfo.uptime}</span>
           </div>
         </div>
       </div>
