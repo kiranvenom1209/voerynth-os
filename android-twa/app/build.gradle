@@ -26,8 +26,7 @@ android {
 
     signingConfigs {
         release {
-            // Reuses the same keystore from the Capacitor project
-            storeFile file('../../android/voerynth-release.keystore')
+            storeFile file('../voerynth-release.keystore')
             storePassword 'voerynth2024'
             keyAlias 'voerynth'
             keyPassword 'voerynth2024'
@@ -52,5 +51,17 @@ dependencies {
     // Google's official TWA helper library — provides LauncherActivity and
     // all the plumbing for Trusted Web Activities out of the box.
     implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+
+    // Force a single Kotlin stdlib version to avoid duplicate-class errors
+    // between kotlin-stdlib (1.8.x) and kotlin-stdlib-jdk7/jdk8 (1.6.x)
+    constraints {
+        implementation('org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22') {
+            because 'kotlin-stdlib 1.8.x already includes jdk7 classes'
+        }
+        implementation('org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22') {
+            because 'kotlin-stdlib 1.8.x already includes jdk8 classes'
+        }
+    }
 }
 

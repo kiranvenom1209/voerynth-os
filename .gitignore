@@ -48,3 +48,8 @@ NPM_REGISTRY.md
 
 # Large files
 *.zip
+
+# Android TWA
+android-twa/app/build/
+android-twa/.gradle/
+android-twa/local.properties
