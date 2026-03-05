@@ -151,10 +151,13 @@ const LightsView = ({ onColorPicker, editMode = false, onCardEdit = null, cardCo
     }, []);
 
     return (
-        <div className="space-y-8 animate-[fadeIn_0.8s_ease-out]">
+        <div className="space-y-8">
             {roomRenderData.map((room, rIdx) => (
                 <div key={rIdx} className="space-y-4">
-                    <div className="flex items-center gap-3 border-b border-slate-800/50 pb-2 transition-colors duration-500">
+                    <div
+                        className="flex items-center gap-3 border-b border-slate-800/50 pb-2 transition-colors duration-500 animate-[slideUpFade_0.5s_ease-out_both]"
+                        style={{ animationDelay: `${room.startDelay > 0 ? room.startDelay - 50 : 0}ms` }}
+                    >
                         <room.icon className={`${colors.text}/80 transition-all duration-500`} size={20} />
                         <h3 className="font-serif text-lg text-slate-300 transition-colors duration-500">{room.name}</h3>
                     </div>
@@ -162,7 +165,7 @@ const LightsView = ({ onColorPicker, editMode = false, onCardEdit = null, cardCo
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {room.hasEnv && <FanCard
                             delay={room.startDelay}
-                            disableAnimation={isDesktop}
+                            disableAnimation={false}
                             editMode={editMode}
                             onEditClick={onCardEdit}
                             cardId={`fan-${room.name.toLowerCase().replace(/\s+/g, '-')}`}
@@ -179,7 +182,7 @@ const LightsView = ({ onColorPicker, editMode = false, onCardEdit = null, cardCo
                                     onColorPicker={onColorPicker}
                                     index={index}
                                     delay={room.startDelay + (index * 50) + (room.hasEnv ? 50 : 0)}
-                                    disableAnimation={isDesktop}
+                                    disableAnimation={false}
                                     editMode={editMode}
                                     onEditClick={onCardEdit}
                                     cardId={cardId}
@@ -191,7 +194,7 @@ const LightsView = ({ onColorPicker, editMode = false, onCardEdit = null, cardCo
                             <Card
                                 className="flex flex-col justify-center"
                                 delay={room.startDelay + (room.lights.length * 50) + (room.hasEnv ? 50 : 0)}
-                                disableAnimation={isDesktop}
+                                disableAnimation={false}
                                 editMode={editMode}
                                 onEditClick={onCardEdit}
                                 cardId={`scenes-${room.name.toLowerCase().replace(/\s+/g, '-')}`}
