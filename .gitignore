@@ -45,3 +45,6 @@ research/
 research.zip
 developer_overview.txt
 NPM_REGISTRY.md
+
+# Large files
+*.zip
