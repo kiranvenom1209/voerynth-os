@@ -22,7 +22,6 @@ import SettingsView from './views/SettingsView';
 import { AccentColorProvider, useAccentColor } from './context/AccentColorContext';
 import { HomeAssistantProvider, useHomeAssistant } from './context/HomeAssistantContext';
 import * as storage from './utils/storage';
-import WakeWordService from './services/WakeWordService';
 import MobileInstallPrompt from './components/MobileInstallPrompt';
 
 // Lightweight clock component so only this small piece re-renders every second
@@ -71,7 +70,6 @@ const AppContent = () => {
   const [screenSaverEnabled, setScreenSaverEnabled] = useState(false);
   const [screenSaverTimeout, setScreenSaverTimeout] = useState(30);
   const [screenSaverBrightness, setScreenSaverBrightness] = useState(5);
-  const [autoBrightnessMode, setAutoBrightnessMode] = useState(true); // Auto mode enabled by default
   const [screenSaverActive, setScreenSaverActive] = useState(false);
   const [screenSaverDismissing, setScreenSaverDismissing] = useState(false);
   const lastActivityRef = useRef(Date.now());
@@ -86,10 +84,6 @@ const AppContent = () => {
   // Card Configurations State
   const [cardConfigs, setCardConfigs] = useState({});
 
-  // --- WAKE WORD STATE ---
-  const [wakeWordEnabled, setWakeWordEnabled] = useState(false);
-  const [wakeWordListening, setWakeWordListening] = useState(false);
-  const [wakeWordTriggered, setWakeWordTriggered] = useState(false);
 
   // Load settings from storage on mount
   useEffect(() => {
@@ -100,8 +94,6 @@ const AppContent = () => {
       const ssEnabled = await storage.getItem('voerynth_screensaver_enabled');
       const ssTimeout = await storage.getItem('voerynth_screensaver_timeout');
       const ssBrightness = await storage.getItem('voerynth_screensaver_brightness');
-      const autoBrightness = await storage.getItem('voerynth_auto_brightness_mode');
-      const wakeWordEn = await storage.getItem('voerynth_wake_word_enabled');
 
       if (animSpeed) setAnimationSpeed(animSpeed);
       if (partCount) setParticleCount(parseInt(partCount));
@@ -109,8 +101,6 @@ const AppContent = () => {
       if (ssEnabled) setScreenSaverEnabled(ssEnabled === 'true');
       if (ssTimeout) setScreenSaverTimeout(parseInt(ssTimeout));
       if (ssBrightness) setScreenSaverBrightness(parseInt(ssBrightness));
-      if (autoBrightness !== null) setAutoBrightnessMode(autoBrightness === 'true');
-      if (wakeWordEn !== null) setWakeWordEnabled(wakeWordEn === 'true');
 
       // Load all card configurations
       const keys = await storage.keys();
@@ -199,8 +189,6 @@ const AppContent = () => {
     };
   }, [screenSaverEnabled, screenSaverTimeout, screenSaverActive, screenSaverDismissing]);
 
-  // --- SCREEN BRIGHTNESS CONTROL FOR CAPACITOR ---
-  const originalBrightnessRef = useRef(null);
 
   // --- CONFIG MODAL STATE ---
   const [configOpen, setConfigOpen] = useState(false);
@@ -333,62 +321,6 @@ const AppContent = () => {
     autoConnect();
   }, []);
 
-  // Wake word detection initialization
-  useEffect(() => {
-    if (connectionStatus !== 'connected' || !wakeWordEnabled) {
-      // Stop wake word if disconnected or disabled
-      if (wakeWordListening) {
-        WakeWordService.stop();
-        setWakeWordListening(false);
-      }
-      return;
-    }
-
-    const initWakeWord = async () => {
-      console.log('🎙️ Initializing Hey Ammu wake word detection...');
-
-      const initialized = await WakeWordService.initialize(async (event) => {
-        console.log('🎙️ "Hey Ammu" detected! Triggering voice assistant...', event);
-
-        // Show visual indicator
-        setWakeWordTriggered(true);
-
-        try {
-          // Trigger the Home Assistant voice conversation with Malayalam prompts
-          await callService('assist_satellite', 'start_conversation', {
-            entity_id: 'assist_satellite.home_assistant_voice_09af65_assist_satellite',
-            preannounce: false,
-            extra_system_prompt: 'ഉപയോക്താവ് നിങ്ങളുടെ പേര് വിളിച്ചു.',
-            start_message: 'പറയു ചേട്ടാ'
-          });
-          console.log('✅ Voice assistant conversation started');
-        } catch (error) {
-          console.error('❌ Failed to trigger voice assistant:', error);
-        }
-
-        // Hide visual indicator after 3 seconds
-        setTimeout(() => {
-          setWakeWordTriggered(false);
-        }, 3000);
-      });
-
-      if (initialized) {
-        const started = await WakeWordService.start();
-        if (started) {
-          setWakeWordListening(true);
-          console.log('✅ Wake word detection active - say "Hey Ammu" to activate');
-        }
-      }
-    };
-
-    initWakeWord();
-
-    // Cleanup on unmount or when dependencies change
-    return () => {
-      WakeWordService.stop();
-      setWakeWordListening(false);
-    };
-  }, [connectionStatus, wakeWordEnabled, callService]);
 
   const handleConfigSave = (url, token) => {
     setManualDisconnect(false);
@@ -407,144 +339,7 @@ const AppContent = () => {
     setColorPickerOpen(true);
   };
 
-  // Ambient light sensor state
-  const [ambientLux, setAmbientLux] = useState(null);
 
-  // Calculate brightness based on ambient light (lux)
-  const calculateBrightnessFromLux = (lux) => {
-    if (lux === null) return screenSaverBrightness; // Fallback to user setting if no sensor data
-
-    // Lux ranges and corresponding brightness levels:
-    // 0-10 lux: Very dark (night) -> 5%
-    // 10-50 lux: Dark room -> 10%
-    // 50-200 lux: Dim room -> 15-20%
-    // 200-500 lux: Normal indoor -> 25-30%
-    // 500+ lux: Bright room -> 35-40%
-
-    if (lux < 10) return 5;
-    if (lux < 50) return 10;
-    if (lux < 200) return Math.min(15 + Math.floor((lux - 50) / 30), 20);
-    if (lux < 500) return Math.min(25 + Math.floor((lux - 200) / 60), 30);
-    return Math.min(35 + Math.floor((lux - 500) / 100), 40);
-  };
-
-  // Calculate effective screen saver brightness based on lights status and mode
-  const getEffectiveScreenSaverBrightness = () => {
-    // Nighttime scenario: Dark outside + BOTH bedroom AND bathroom lights are on (and no others)
-    if (areOnlyBedroomBathroomLightsOn()) {
-      return 5; // Force minimum brightness for nighttime
-    }
-
-    // Normal scenario: Any other condition - check mode
-    if (autoBrightnessMode) {
-      // Auto mode: use ambient light sensor to auto-adjust
-      return calculateBrightnessFromLux(ambientLux);
-    } else {
-      // Manual mode: use user-configured brightness
-      return screenSaverBrightness;
-    }
-  };
-
-  // Initialize ambient light sensor
-  useEffect(() => {
-    const isCapacitor = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
-    if (!isCapacitor) return;
-
-    let listenerHandle = null;
-
-    const initSensor = async () => {
-      try {
-        const { Sensors } = await import('@danyalwe/capacitor-sensors');
-
-        // Initialize the ambient light sensor
-        await Sensors.init({ type: 'AMBIENT_LIGHT' });
-
-        // Start the sensor
-        await Sensors.start({ type: 'AMBIENT_LIGHT' });
-
-        // Add listener for ambient light data
-        listenerHandle = await Sensors.addListener('AMBIENT_LIGHT', (data) => {
-          if (data.values && data.values.lux !== undefined) {
-            console.log('📱 Ambient light sensor:', data.values.lux, 'lux');
-            setAmbientLux(data.values.lux);
-          }
-        });
-      } catch (err) {
-        console.warn('Ambient light sensor not available:', err);
-      }
-    };
-
-    initSensor();
-
-    return () => {
-      // Cleanup sensor on unmount
-      const cleanup = async () => {
-        try {
-          const { Sensors } = await import('@danyalwe/capacitor-sensors');
-          await Sensors.stop({ type: 'AMBIENT_LIGHT' });
-          if (listenerHandle) {
-            await listenerHandle.remove();
-          }
-        } catch (err) {
-          console.warn('Error cleaning up ambient light sensor:', err);
-        }
-      };
-      cleanup();
-    };
-  }, []);
-
-  // Screen brightness control effect
-  useEffect(() => {
-    // Only run on Capacitor (Android/iOS)
-    const isCapacitor = typeof window !== 'undefined' && window.Capacitor?.isNativePlatform?.();
-    if (!isCapacitor) return;
-
-    const controlBrightness = async () => {
-      try {
-        // Dynamically import the brightness plugin
-        const { ScreenBrightness } = await import('@capacitor-community/screen-brightness');
-
-        if (screenSaverActive) {
-          // Save original brightness before dimming
-          if (originalBrightnessRef.current === null) {
-            const { brightness } = await ScreenBrightness.getBrightness();
-            originalBrightnessRef.current = brightness;
-            console.log('💾 Saved original brightness:', brightness);
-          }
-
-          // Calculate brightness based on lights status and mode
-          let effectiveBrightness;
-          if (areOnlyBedroomBathroomLightsOn()) {
-            // Nighttime: Dark outside + BOTH bedroom AND bathroom lights are on (no others)
-            effectiveBrightness = 5;
-            console.log('🌙 Nighttime mode (dark + bedroom + bathroom) - Minimum brightness: 5%');
-          } else if (autoBrightnessMode) {
-            // Normal + Auto mode: use ambient light sensor
-            effectiveBrightness = calculateBrightnessFromLux(ambientLux);
-            console.log('💡 Auto brightness:', effectiveBrightness + '%', '(Lux:', ambientLux, ')');
-          } else {
-            // Normal + Manual mode: use user setting
-            effectiveBrightness = screenSaverBrightness;
-            console.log('🔧 Manual brightness:', effectiveBrightness + '%');
-          }
-
-          console.log('📱 Setting screen brightness to:', effectiveBrightness + '%');
-          await ScreenBrightness.setBrightness({ brightness: effectiveBrightness / 100 });
-        } else {
-          // Restore original brightness
-          if (originalBrightnessRef.current !== null) {
-            console.log('🔄 Restoring original brightness:', originalBrightnessRef.current);
-            await ScreenBrightness.setBrightness({ brightness: originalBrightnessRef.current });
-            originalBrightnessRef.current = null;
-          }
-        }
-      } catch (err) {
-        console.warn('⚠️ Screen brightness control not available:', err);
-      }
-    };
-
-    controlBrightness();
-  }, [screenSaverActive, screenSaverBrightness, ambientLux, autoBrightnessMode, areOnlyBedroomBathroomLightsOn]);
 
   return (
     <>
@@ -670,7 +465,7 @@ const AppContent = () => {
         {/* Screen Saver */}
         {screenSaverActive && connectionStatus === 'connected' && !showSplash && (
           <ScreenSaver
-            brightness={getEffectiveScreenSaverBrightness()}
+            brightness={areOnlyBedroomBathroomLightsOn() ? 5 : screenSaverBrightness}
             onStartDismiss={() => setScreenSaverDismissing(true)}
             onDismiss={() => {
               setScreenSaverDismissing(false);
@@ -953,12 +748,6 @@ const AppContent = () => {
                     setScreenSaverTimeout={setScreenSaverTimeout}
                     screenSaverBrightness={screenSaverBrightness}
                     setScreenSaverBrightness={setScreenSaverBrightness}
-                    autoBrightnessMode={autoBrightnessMode}
-                    setAutoBrightnessMode={setAutoBrightnessMode}
-                    wakeWordEnabled={wakeWordEnabled}
-                    setWakeWordEnabled={setWakeWordEnabled}
-                    wakeWordListening={wakeWordListening}
-                    wakeWordTriggered={wakeWordTriggered}
                     onOpenConfig={() => setConfigOpen(true)}
                     onLogout={handleLogout}
                   />}

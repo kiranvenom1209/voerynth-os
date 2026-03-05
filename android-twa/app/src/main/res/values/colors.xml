@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Vœrynth OS dark theme colors (matches Tailwind slate-900/950) -->
+    <color name="colorPrimary">#020617</color>       <!-- slate-950 — status bar -->
+    <color name="navigationColor">#020617</color>     <!-- slate-950 — nav bar -->
+    <color name="backgroundColor">#0f172a</color>     <!-- slate-900 — splash bg -->
+</resources>
+

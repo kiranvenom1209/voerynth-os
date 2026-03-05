@@ -1,0 +1,56 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace "com.voerynth.os"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.voerynth.os"
+        minSdk 24
+        targetSdk 35
+        versionCode 7
+        versionName "5.0.3"
+
+        // TWA Configuration — os.voerynth.de
+        manifestPlaceholders = [
+            hostName       : "os.voerynth.de",
+            defaultUrl     : "https://os.voerynth.de",
+            launcherName   : "Vœrynth OS",
+            assetStatements: '[{ "relation": ["delegate_permission/common.handle_all_urls"], ' +
+                             '"target": { "namespace": "web", ' +
+                             '"site": "https://os.voerynth.de" } }]'
+        ]
+    }
+
+    signingConfigs {
+        release {
+            // Reuses the same keystore from the Capacitor project
+            storeFile file('../../android/voerynth-release.keystore')
+            storePassword 'voerynth2024'
+            keyAlias 'voerynth'
+            keyPassword 'voerynth2024'
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Google's official TWA helper library — provides LauncherActivity and
+    // all the plumbing for Trusted Web Activities out of the box.
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}
+

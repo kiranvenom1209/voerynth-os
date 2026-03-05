@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Sliders, Palette, Wifi, Power, List, Cpu, Activity, LogOut, Settings, RefreshCw, AlertTriangle, ArrowDown } from 'lucide-react';
 import CompanyLogo from '../components/CompanyLogo';
 import SystemLogsContent from '../components/SystemLogsContent';
-import WakeWordDebugger from '../components/WakeWordDebugger';
 import { useAccentColor } from '../context/AccentColorContext';
 import { useHomeAssistant } from '../context/HomeAssistantContext';
 import * as storage from '../utils/storage';
@@ -20,12 +19,6 @@ const AdvancedSettingsView = ({
     setScreenSaverTimeout,
     screenSaverBrightness,
     setScreenSaverBrightness,
-    autoBrightnessMode,
-    setAutoBrightnessMode,
-    wakeWordEnabled,
-    setWakeWordEnabled,
-    wakeWordListening,
-    wakeWordTriggered,
     onOpenConfig,
     onLogout
 }) => {
@@ -239,36 +232,17 @@ const AdvancedSettingsView = ({
                     </SettingCard>
 
                     <SettingCard
-                        title="Auto Brightness Mode"
-                        description="Automatically adjust brightness based on ambient light sensor (5% when dark outside + bedroom + bathroom)"
-                    >
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-slate-400">
-                                {autoBrightnessMode ? 'Auto (Sensor-based)' : 'Manual (Fixed)'}
-                            </span>
-                            <ToggleSwitch
-                                enabled={autoBrightnessMode}
-                                onChange={(val) => {
-                                    setAutoBrightnessMode(val);
-                                    handleSave('voerynth_auto_brightness_mode', val);
-                                }}
-                            />
-                        </div>
-                    </SettingCard>
-
-                    <SettingCard
                         title="Screen Saver Brightness"
-                        description={autoBrightnessMode ? "Auto mode: Adjusts 5-40% based on room light" : "Manual mode: Fixed brightness level"}
+                        description="Fixed brightness level when screen saver is active"
                         noHover={true}
                     >
                         <div className="relative">
                             <button
-                                onClick={() => !autoBrightnessMode && setScreenSaverBrightnessOpen(!screenSaverBrightnessOpen)}
-                                className={`w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-slate-200 outline-none flex items-center justify-between ${autoBrightnessMode ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                                disabled={autoBrightnessMode}
+                                onClick={() => setScreenSaverBrightnessOpen(!screenSaverBrightnessOpen)}
+                                className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-slate-200 outline-none flex items-center justify-between cursor-pointer"
                             >
-                                <span>{autoBrightnessMode ? 'Auto (5-40%)' : `${screenSaverBrightness}%`}</span>
-                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className={`transition-transform ${screenSaverBrightnessOpen && !autoBrightnessMode ? 'rotate-180' : ''}`}>
+                                <span>{`${screenSaverBrightness}%`}</span>
+                                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg" className={`transition-transform ${screenSaverBrightnessOpen ? 'rotate-180' : ''}`}>
                                     <path d="M3 5L6 8L9 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
                             </button>
@@ -298,44 +272,6 @@ const AdvancedSettingsView = ({
                         </button>
                     </SettingCard>
 
-                    <SettingCard
-                        title="Wake Word Detection"
-                        description='Say "Hey Ammu" to activate voice assistant'
-                    >
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <span className="text-sm text-slate-400">
-                                    {wakeWordEnabled ? 'Enabled' : 'Disabled'}
-                                </span>
-                                <ToggleSwitch
-                                    enabled={wakeWordEnabled}
-                                    onChange={(val) => {
-                                        setWakeWordEnabled(val);
-                                        handleSave('voerynth_wake_word_enabled', val);
-                                    }}
-                                />
-                            </div>
-                            {wakeWordEnabled && wakeWordListening && (
-                                <div className="flex items-center gap-2 text-emerald-500 text-xs">
-                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                                    <span>Listening for "Hey Ammu"...</span>
-                                </div>
-                            )}
-                            {wakeWordEnabled && wakeWordTriggered && (
-                                <div className="flex items-center gap-2 text-cyan-400 text-xs font-semibold animate-pulse">
-                                    <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
-                                    <span>Wake word detected! 🎙️</span>
-                                </div>
-                            )}
-                        </div>
-                    </SettingCard>
-
-                    {/* Wake Word Debugger - Only show in debug mode */}
-                    {debugMode && wakeWordEnabled && (
-                        <div className="lg:col-span-2">
-                            <WakeWordDebugger />
-                        </div>
-                    )}
 
                     <SettingCard
                         title="Disconnect"

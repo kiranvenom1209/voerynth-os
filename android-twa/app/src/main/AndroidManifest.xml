@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Internet access for loading the PWA -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="${launcherName}"
+        android:theme="@style/Theme.LauncherActivity"
+        android:supportsRtl="true">
+
+        <!-- Digital Asset Links declaration for TWA domain verification -->
+        <meta-data
+            android:name="asset_statements"
+            android:value="${assetStatements}" />
+
+        <!--
+            LauncherActivity from android-browser-helper.
+            This opens Chrome in Trusted Web Activity mode (full-screen, no URL bar)
+            pointed at your hosted PWA.
+        -->
+        <activity
+            android:name="com.google.androidbrowserhelper.trusted.LauncherActivity"
+            android:exported="true">
+
+            <!-- Default URL the TWA opens -->
+            <meta-data
+                android:name="android.support.customtabs.trusted.DEFAULT_URL"
+                android:value="${defaultUrl}" />
+
+            <!-- Status bar color (matches Vœrynth OS dark theme) -->
+            <meta-data
+                android:name="android.support.customtabs.trusted.STATUS_BAR_COLOR"
+                android:resource="@color/colorPrimary" />
+
+            <!-- Navigation bar color -->
+            <meta-data
+                android:name="android.support.customtabs.trusted.NAVIGATION_BAR_COLOR"
+                android:resource="@color/navigationColor" />
+
+            <!-- Splash screen background color -->
+            <meta-data
+                android:name="android.support.customtabs.trusted.SPLASH_SCREEN_BACKGROUND_COLOR"
+                android:resource="@color/backgroundColor" />
+
+            <!-- Splash screen fade-out duration (ms) -->
+            <meta-data
+                android:name="android.support.customtabs.trusted.SPLASH_SCREEN_FADE_OUT_DURATION"
+                android:value="300" />
+
+            <!-- App launcher entry point -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Deep link / app link verification -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="${hostName}" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
+

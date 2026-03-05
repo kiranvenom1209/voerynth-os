@@ -34,7 +34,7 @@ export default defineConfig({
       }
     })
   ],
-  base: process.env.VITE_PLATFORM === 'electron' ? './' : '/', // './' for Electron/Capacitor, '/' for web (Netlify)
+  base: process.env.VITE_PLATFORM === 'electron' ? './' : '/', // './' for Electron, '/' for web
   build: {
     target: 'esnext', // Use modern JS features for better performance
     minify: 'esbuild', // Fast and efficient minification
@@ -65,6 +65,6 @@ export default defineConfig({
   // Optimize dependencies for faster loading
   optimizeDeps: {
     include: ['react', 'react-dom', 'zustand', 'lucide-react'],
-    exclude: ['@capacitor/core', '@capacitor/android']
+    exclude: []
   }
 })
