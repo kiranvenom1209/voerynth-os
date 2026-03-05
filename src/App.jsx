@@ -17,6 +17,7 @@ import SecurityView from './views/SecurityView';
 import EnergyView from './views/EnergyView';
 import UpdatesView from './views/UpdatesView';
 import NetworkView from './views/NetworkView';
+import HealthView from './views/HealthView';
 import AdvancedSettingsView from './views/AdvancedSettingsView';
 import SettingsView from './views/SettingsView';
 import { AccentColorProvider, useAccentColor } from './context/AccentColorContext';
@@ -727,6 +728,14 @@ const AppContent = () => {
                     }}
                   />}
                   {activeTab === 'network' && <NetworkView
+                    editMode={editMode}
+                    onCardEdit={(cardId) => {
+                      console.log('📝 Card edit requested for:', cardId);
+                      setEditingCard({ id: cardId });
+                      setCardEditorOpen(true);
+                    }}
+                  />}
+                  {activeTab === 'health' && <HealthView
                     editMode={editMode}
                     onCardEdit={(cardId) => {
                       console.log('📝 Card edit requested for:', cardId);

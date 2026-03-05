@@ -263,3 +263,35 @@ body {
 .animate-glow {
   animation: glow 2s ease-in-out infinite;
 }
+
+/* ===== HEALTH CARD BACKGROUND TRACES ===== */
+
+/* ECG line scrolling animation — heartbeat trace moves left */
+@keyframes ecgScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.health-ecg-line {
+  animation: ecgScroll 3s linear infinite;
+}
+
+/* Wave line gentle drift */
+@keyframes waveDrift {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.health-wave-line {
+  animation: waveDrift 5s linear infinite;
+}
+
+/* Pulse line scroll — slower, calmer */
+@keyframes pulseScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.health-pulse-line {
+  animation: pulseScroll 4s linear infinite;
+}

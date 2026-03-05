@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { LayoutDashboard, Lightbulb, Tv, ShieldCheck, Zap, Download, Activity, Sliders, Settings } from 'lucide-react';
+import { LayoutDashboard, Lightbulb, Tv, ShieldCheck, Zap, Download, Activity, HeartPulse, Sliders, Settings } from 'lucide-react';
 import SidebarItem from './SidebarItem';
 import CompanyLogo from './CompanyLogo';
 import { useAccentColor } from '../context/AccentColorContext';
@@ -95,6 +95,7 @@ const Sidebar = ({
                 <SidebarItem id="dashboard" icon={LayoutDashboard} label="Main Deck" active={activeTab === 'dashboard'} onClick={() => handleTabClick('dashboard')} />
                 <SidebarItem id="lights" icon={Lightbulb} label="Chambers" active={activeTab === 'lights'} onClick={() => handleTabClick('lights')} />
                 <SidebarItem id="media" icon={Tv} label="Entertainment" active={activeTab === 'media'} onClick={() => handleTabClick('media')} />
+                <SidebarItem id="health" icon={HeartPulse} label="Health" active={activeTab === 'health'} onClick={() => handleTabClick('health')} />
                 <SidebarItem id="security" icon={ShieldCheck} label="Security" active={activeTab === 'security'} onClick={() => handleTabClick('security')} />
                 <SidebarItem id="energy" icon={Zap} label="Energy" active={activeTab === 'energy'} onClick={() => handleTabClick('energy')} />
                 <SidebarItem id="updates" icon={Download} label="Updates" active={activeTab === 'updates'} onClick={() => handleTabClick('updates')} />

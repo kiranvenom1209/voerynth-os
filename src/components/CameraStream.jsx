@@ -1,33 +1,38 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Video, Circle } from 'lucide-react';
 import Card from './Card';
 import { useHassEntity } from '../context/HomeAssistantContext';
 import * as storage from '../utils/storage';
 
-// --- CAMERA STREAM COMPONENT (Snapshot-based - CORS Bypass) ---
-// Uses the entity_picture attribute which contains an auth token,
-// allowing us to load it directly via <img> tag and bypass CORS restrictions.
+// --- CAMERA STREAM COMPONENT (Continuous MJPEG — like HA web interface) ---
+//
+// HA exposes two camera REST endpoints:
+//   /api/camera_proxy/<entity_id>        → single JPEG snapshot
+//   /api/camera_proxy_stream/<entity_id> → continuous MJPEG stream
+//                                          (multipart/x-mixed-replace)
+//
+// The old code polled snapshots every 500ms → choppy, flickery.
+// This version uses camera_proxy_stream — the browser natively renders the
+// MJPEG stream in an <img> tag, exactly like HA's own camera card.
+// No polling, no intervals, just one long-lived HTTP connection per camera.
+//
 const CameraStream = ({ entityId, name }) => {
 	const [baseUrl, setBaseUrl] = useState('');
-	const [timestamp, setTimestamp] = useState(Date.now());
+	const [isLoading, setIsLoading] = useState(true);
+	const [hasError, setHasError] = useState(false);
 	const [isMixedContentError, setIsMixedContentError] = useState(false);
-	const intervalRef = useRef(null);
 
 	const entity = useHassEntity(entityId);
 	const isUnavailable = entity?.isUnavailable;
-
-	// entity_picture typically looks like: /api/camera_proxy/camera.name?token=abcdef123...
-	const entityPicture = entity?.attributes?.entity_picture;
+	const accessToken = entity?.attributes?.access_token;
 
 	// Load base URL on mount
 	useEffect(() => {
 		const loadConfig = async () => {
 			const url = await storage.getItem('voerynth_ha_url');
-			// Normalize: strip trailing slash so we don't end up with //api/...
 			const normalizedUrl = (url || '').replace(/\/+$/, '');
 			setBaseUrl(normalizedUrl);
 
-			// Fast-fail check for HTTP mixed-content on HTTPS Netlify
 			if (window.location.protocol === 'https:' && normalizedUrl.startsWith('http://')) {
 				setIsMixedContentError(true);
 			}
@@ -35,28 +40,14 @@ const CameraStream = ({ entityId, name }) => {
 		loadConfig();
 	}, []);
 
-	// Periodically update the timestamp to fetch a new frame
-	useEffect(() => {
-		if (!baseUrl || isUnavailable || !entityPicture || isMixedContentError) return;
-
-		// Refresh roughly twice per second to balance fluidity and bandwidth
-		intervalRef.current = setInterval(() => {
-			setTimestamp(Date.now());
-		}, 500);
-
-		return () => {
-			if (intervalRef.current) {
-				clearInterval(intervalRef.current);
-			}
-		};
-	}, [baseUrl, isUnavailable, entityPicture, isMixedContentError]);
-
-	// Construct the stream URL. Add the timestamp to bust the browser's image cache.
-	// Ensure we handle cases where the entityPicture already has query params vs when it doesn't.
-	const separator = entityPicture && entityPicture.includes('?') ? '&' : '?';
-	const streamUrl = entityPicture && baseUrl && !isMixedContentError
-		? `${baseUrl}${entityPicture}${separator}_t=${timestamp}`
-		: null;
+	// Build the continuous MJPEG stream URL (derived state, no effect needed)
+	// camera_proxy_stream (not camera_proxy) gives a real-time MJPEG stream.
+	// The browser keeps the connection open and updates the <img> as each
+	// JPEG frame arrives — smooth, real-time, no polling needed.
+	const computedStreamUrl = useMemo(() => {
+		if (!baseUrl || !accessToken || isUnavailable || isMixedContentError) return null;
+		return `${baseUrl}/api/camera_proxy_stream/${entityId}?token=${accessToken}`;
+	}, [baseUrl, entityId, accessToken, isUnavailable, isMixedContentError]);
 
 	return (
 		<Card className="p-0 min-h-[300px] group relative overflow-hidden" noPadding>
@@ -80,16 +71,38 @@ const CameraStream = ({ entityId, name }) => {
 						Access Home Assistant via HTTPS (e.g., Nabu Casa).
 					</p>
 				</div>
-			) : streamUrl ? (
-				<img
-					src={streamUrl}
-					alt={name}
-					className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 min-h-[300px]"
-				/>
+			) : computedStreamUrl ? (
+				<>
+					{/* Loading state shown underneath until first frame arrives */}
+					{isLoading && (
+						<div className="absolute inset-0 flex items-center justify-center bg-slate-900 text-slate-600 flex-col gap-2 z-10">
+							<Video size={48} />
+							<span className="text-xs tracking-widest">Connecting stream...</span>
+						</div>
+					)}
+					<img
+						src={computedStreamUrl}
+						alt={name}
+						className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 min-h-[300px]"
+						onLoad={() => setIsLoading(false)}
+						onError={() => {
+							setHasError(true);
+							setIsLoading(false);
+						}}
+					/>
+					{hasError && (
+						<div className="absolute inset-0 flex items-center justify-center bg-slate-900/90 text-slate-500 flex-col gap-2 z-10">
+							<Video size={48} />
+							<span className="text-xs tracking-widest">Stream unavailable</span>
+						</div>
+					)}
+				</>
 			) : (
 				<div className="w-full h-full flex items-center justify-center bg-slate-900 text-slate-600 flex-col gap-2 min-h-[300px]">
 					<Video size={48} />
-					<span className="text-xs tracking-widest">Connecting...</span>
+					<span className="text-xs tracking-widest">
+						{isUnavailable ? 'Camera offline' : 'Connecting...'}
+					</span>
 				</div>
 			)}
 		</Card>
