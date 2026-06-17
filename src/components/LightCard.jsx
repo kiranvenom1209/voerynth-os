@@ -8,11 +8,14 @@ import { getEntityColor } from '../utils/utils';
 import { getElementCenterOrigin } from '../utils/longPressMotion';
 import BrandIcon from './BrandIcon';
 
+const BRIGHTNESS_DRAG_START_PX = 12;
+const BRIGHTNESS_SCROLL_CANCEL_PX = 10;
+
 const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disableAnimation, editMode = false, onEditClick = null, cardId = null }) => {
     const { callService } = useHomeAssistant();
     const cardShellRef = useRef(null);
     const cardBodyRef = useRef(null);
-    const dragRef = useRef({ tracking: false, dragging: false, pointerId: null, startX: 0 });
+    const dragRef = useRef({ tracking: false, dragging: false, pointerId: null, startX: 0, startY: 0 });
     const pendingBrightnessRef = useRef(null);
     const pendingTimerRef = useRef(null);
     const lastServiceAtRef = useRef(0);
@@ -151,17 +154,31 @@ const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disa
             dragging: false,
             pointerId: event.pointerId,
             startX: event.clientX,
+            startY: event.clientY,
         };
-        event.currentTarget.setPointerCapture?.(event.pointerId);
     }, [shouldIgnorePointer]);
 
     const handlePointerMove = useCallback((event) => {
         const dragState = dragRef.current;
         if (!dragState.tracking || dragState.pointerId !== event.pointerId) return;
 
+        const deltaX = event.clientX - dragState.startX;
+        const deltaY = event.clientY - dragState.startY;
+        const horizontalTravel = Math.abs(deltaX);
+        const verticalTravel = Math.abs(deltaY);
+
         if (!dragState.dragging) {
-            if (Math.abs(event.clientX - dragState.startX) < 6) return;
+            if (verticalTravel >= BRIGHTNESS_SCROLL_CANCEL_PX && verticalTravel >= horizontalTravel) {
+                dragRef.current = { tracking: false, dragging: false, pointerId: null, startX: 0, startY: 0 };
+                return;
+            }
+
+            if (horizontalTravel < BRIGHTNESS_DRAG_START_PX || horizontalTravel <= verticalTravel * 1.25) {
+                return;
+            }
+
             dragState.dragging = true;
+            event.currentTarget.setPointerCapture?.(event.pointerId);
         }
 
         event.preventDefault();
@@ -178,8 +195,10 @@ const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disa
             event.stopPropagation();
         }
 
-        event.currentTarget.releasePointerCapture?.(event.pointerId);
-        dragRef.current = { tracking: false, dragging: false, pointerId: null, startX: 0 };
+        if (dragState.dragging) {
+            event.currentTarget.releasePointerCapture?.(event.pointerId);
+        }
+        dragRef.current = { tracking: false, dragging: false, pointerId: null, startX: 0, startY: 0 };
     }, [brightnessFromPointer, updateBrightness]);
 
     const handleRangeChange = useCallback((event) => {

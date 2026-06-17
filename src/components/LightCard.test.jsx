@@ -80,6 +80,29 @@ describe('LightCard brightness interaction', () => {
     });
   });
 
+  it('does not turn on or adjust brightness during a vertical phone scroll', () => {
+    renderLightCard();
+
+    const shell = screen.getByText('Desk Lamp').closest('[data-light-card-shell]');
+    shell.getBoundingClientRect = () => ({
+      left: 0,
+      top: 0,
+      right: 200,
+      bottom: 120,
+      width: 200,
+      height: 120,
+      x: 0,
+      y: 0,
+      toJSON: () => {},
+    });
+
+    fireEvent.pointerDown(shell, { pointerId: 1, clientX: 82, clientY: 10 });
+    fireEvent.pointerMove(shell, { pointerId: 1, clientX: 88, clientY: 52 });
+    fireEvent.pointerUp(shell, { pointerId: 1, clientX: 90, clientY: 88 });
+
+    expect(lightMocks.callService).not.toHaveBeenCalled();
+  });
+
   it('toggles power locally before sending the light service call', async () => {
     lightMocks.entity = createLightEntity({ isActive: false, brightness: 0 });
     renderLightCard();
@@ -136,6 +159,23 @@ describe('LightCard brightness interaction', () => {
       vi.advanceTimersByTime(650);
     });
     fireEvent.mouseUp(screen.getByRole('button', { name: /toggle desk lamp/i }));
+
+    expect(onColorPicker).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('cancels the color picker long press when touch movement becomes a scroll', () => {
+    vi.useFakeTimers();
+    const onColorPicker = vi.fn();
+    renderLightCard({ onColorPicker });
+
+    const shell = screen.getByText('Desk Lamp').closest('[data-light-card-shell]');
+    fireEvent.touchStart(shell, { touches: [{ clientX: 40, clientY: 20 }] });
+    fireEvent.touchMove(shell, { touches: [{ clientX: 42, clientY: 44 }] });
+    act(() => {
+      vi.advanceTimersByTime(650);
+    });
+    fireEvent.touchEnd(shell, { changedTouches: [{ clientX: 42, clientY: 44 }] });
 
     expect(onColorPicker).not.toHaveBeenCalled();
     vi.useRealTimers();
