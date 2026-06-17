@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import * as storage from '../utils/storage';
 
@@ -190,4 +191,3 @@ export const useAccentColor = () => {
 };
 
 export default AccentColorContext;
-

@@ -12,9 +12,12 @@ const Card = ({
     disableAnimation = false,
     editMode = false,
     onEditClick = null,
-    cardId = null
+    cardId = null,
+    containerRef = null,
+    containerProps = {}
 }) => {
     const { colors } = useAccentColor();
+    const { onClick: containerOnClick, style: containerStyle, ...restContainerProps } = containerProps;
 
     const handleClick = (e) => {
         console.log('🎴 Card clicked:', { editMode, cardId, hasOnEditClick: !!onEditClick });
@@ -23,17 +26,20 @@ const Card = ({
             console.log('✅ Opening card editor for:', cardId);
             onEditClick(cardId);
         }
+        containerOnClick?.(e);
     };
 
     return (
         <div
+            ref={containerRef}
+            {...restContainerProps}
             onClick={handleClick}
             className={`group relative bg-slate-900/80 backdrop-blur-lg border shadow-2xl overflow-hidden flex flex-col ${disableAnimation ? '' : 'animate-[slideUpFade_0.6s_ease-out_both]'} transition-all duration-500 ${className} ${
                 editMode
                     ? `${colors.border} border-2 animate-[glow_2s_ease-in-out_infinite] cursor-pointer hover:scale-[1.02] active:scale-[0.98]`
                     : 'border-slate-700/50 hover:border-slate-600/70'
             }`}
-            style={{ animationDelay: disableAnimation ? '0ms' : `${delay}ms` }}
+            style={{ ...containerStyle, animationDelay: disableAnimation ? '0ms' : `${delay}ms` }}
         >
             {/* Corner Accents */}
             <div className={`absolute top-0 left-0 w-2 h-2 border-t border-l ${colors.borderSoft} rounded-tl-sm transition-colors duration-500`}></div>

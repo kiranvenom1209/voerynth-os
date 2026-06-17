@@ -3,14 +3,16 @@ import { ArrowDown, ArrowUp, Leaf, Flame } from 'lucide-react';
 import Card from '../Card';
 import { useHassEntity } from '../../context/HomeAssistantContext';
 import { useAccentColor } from '../../context/AccentColorContext';
+import estateEntities from '../../config/estateEntities';
 
 const EnergyFlowCard = ({ delay = 350, editMode = false, onEditClick = null, cardId = null }) => {
   const { colors } = useAccentColor();
+  const energyConfig = estateEntities.energy;
   
-  const importEnergy = useHassEntity('sensor.daily_energy_import', { state: '0' });
-  const exportEnergy = useHassEntity('sensor.daily_energy_export', { state: '0' });
-  const co2Intensity = useHassEntity('sensor.electricity_maps_co2_intensity', { state: '0' });
-  const fossilFuel = useHassEntity('sensor.electricity_maps_grid_fossil_fuel_percentage', { state: '0' });
+  const importEnergy = useHassEntity(energyConfig.dashboardImport, { state: '0' });
+  const exportEnergy = useHassEntity(energyConfig.dailyExport, { state: '0' });
+  const co2Intensity = useHassEntity(energyConfig.co2Intensity, { state: '0' });
+  const fossilFuel = useHassEntity(energyConfig.fossilFuel, { state: '0' });
 
   const importValue = (importEnergy.state === 'unknown' || importEnergy.state === 'unavailable') 
     ? '0.0' : importEnergy.state;
@@ -79,4 +81,3 @@ const EnergyFlowCard = ({ delay = 350, editMode = false, onEditClick = null, car
 };
 
 export default EnergyFlowCard;
-

@@ -3,18 +3,20 @@ import { Train } from 'lucide-react';
 import Card from '../Card';
 import { useHassEntity } from '../../context/HomeAssistantContext';
 import { useAccentColor } from '../../context/AccentColorContext';
+import estateEntities from '../../config/estateEntities';
 
 const TransitCard = ({ delay = 200, editMode = false, onEditClick = null, cardId = null }) => {
   const { colors } = useAccentColor();
-  const trainSensor = useHassEntity('sensor.schmalkalden_fachhochschule_departures_2', { 
+  const transitConfig = estateEntities.transit;
+  const trainSensor = useHassEntity(transitConfig.departures, { 
     attributes: { next_departures: [] } 
   });
   const departures = trainSensor.attributes.next_departures || [];
 
   return (
     <Card
-      title="Transit Uplink"
-      subtitle="FH-S Station"
+      title={transitConfig.title}
+      subtitle={transitConfig.subtitle}
       delay={delay}
       className="lg:col-span-1"
       editMode={editMode}

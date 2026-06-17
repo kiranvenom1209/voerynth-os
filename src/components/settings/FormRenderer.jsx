@@ -14,7 +14,7 @@ import { useHomeAssistant } from '../../context/HomeAssistantContext';
  */
 const FormField = ({ field, value, onChange, error, entities, devices, areas }) => {
   const { colors } = useAccentColor();
-  const { name, type, required, description, default: defaultValue } = field;
+  const { name, type, required, description } = field;
 
   // Determine field type from schema
   const fieldType = field.selector?.type || type || 'string';
@@ -35,7 +35,7 @@ const FormField = ({ field, value, onChange, error, entities, devices, areas }) 
         );
 
       case 'number':
-      case 'integer':
+      case 'integer': {
         const min = field.selector?.number?.min;
         const max = field.selector?.number?.max;
         const step = field.selector?.number?.step || (fieldType === 'integer' ? 1 : 0.1);
@@ -53,6 +53,7 @@ const FormField = ({ field, value, onChange, error, entities, devices, areas }) 
             required={required}
           />
         );
+      }
 
       case 'boolean':
         return (
@@ -70,7 +71,7 @@ const FormField = ({ field, value, onChange, error, entities, devices, areas }) 
           </label>
         );
 
-      case 'select':
+      case 'select': {
         const options = field.selector?.select?.options || [];
         return (
           <select
@@ -87,6 +88,7 @@ const FormField = ({ field, value, onChange, error, entities, devices, areas }) 
             ))}
           </select>
         );
+      }
 
       case 'entity':
         return (
@@ -231,4 +233,3 @@ const FormRenderer = ({ schema, values, onChange, errors, onSubmit }) => {
 };
 
 export default FormRenderer;
-

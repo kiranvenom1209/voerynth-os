@@ -1,23 +1,7 @@
-/**
- * --- HELPER: Entity Hook ---
- */
+import { createHassEntityShape } from '../utils/hakitEntity';
+
 export const useEntity = (hassStates, entityId, mockData = {}) => {
-    const entity = hassStates[entityId];
-    if (entity) {
-        return {
-            state: entity.state,
-            attributes: entity.attributes || {},
-            entity_picture: entity.attributes?.entity_picture,
-            isUnavailable: entity.state === 'unavailable' || entity.state === 'unknown',
-            lastUpdated: new Date(entity.last_updated)
-        };
-    }
-    return {
-        ...mockData,
-        attributes: mockData.attributes || {},
-        isUnavailable: true,
-        isMock: true
-    };
+    return createHassEntityShape(entityId, hassStates[entityId], mockData);
 };
 
 export default useEntity;

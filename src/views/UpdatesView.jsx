@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, ShieldCheck, Cpu, Wifi, Settings, Music, RefreshCw, AlertTriangle, Download, CheckCircle, X } from 'lucide-react';
+import { Activity, RefreshCw, AlertTriangle, Download, CheckCircle, X } from 'lucide-react';
 import Card from '../components/Card';
 import { useHomeAssistant } from '../context/HomeAssistantContext';
 import { useAccentColor } from '../context/AccentColorContext';
 import CompanyLogo from '../components/CompanyLogo';
-import { useEntity } from '../hooks/useEntity';
+import { createHassEntityShape } from '../utils/hakitEntity';
+import { categorizeUpdates } from '../utils/updateCategorizer';
+import { APP_BRAND, APP_NAME, APP_VERSION } from '../config/app';
 
 const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
     const { hassStates, callService } = useHomeAssistant();
@@ -27,104 +29,7 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
     }, [showVoerynthModal]);
 
     // Dynamically categorize all update entities from Control Hub
-    const categorizedUpdates = useMemo(() => {
-        const categories = {
-            system: [],
-            addons: [],
-            esphome: [],
-            other: []
-        };
-
-        if (!hassStates) return categories;
-
-        // Get all update entities
-        const updateEntities = Object.keys(hassStates)
-            .filter(entityId => entityId.startsWith('update.'))
-            .map(entityId => {
-                const entity = hassStates[entityId];
-                let friendlyName = entity?.attributes?.friendly_name || entityId.replace('update.', '').replace(/_/g, ' ');
-
-                // Replace "Home Assistant" with "Control Hub" in display names
-                friendlyName = friendlyName
-                    .replace(/Home Assistant Core/gi, 'Control Hub Core')
-                    .replace(/Home Assistant Supervisor/gi, 'Control Hub Supervisor')
-                    .replace(/Home Assistant Operating System/gi, 'Control Hub Operating System')
-                    .replace(/Home Assistant/gi, 'Control Hub');
-
-                return {
-                    id: entityId,
-                    name: friendlyName,
-                    entity: entity,
-                    entityIdLower: entityId.toLowerCase(),
-                    nameLower: friendlyName.toLowerCase()
-                };
-            });
-
-        // Categorize and assign icons
-        updateEntities.forEach(update => {
-            const { id, name, entityIdLower, nameLower } = update;
-
-            // System updates (Control Hub core components)
-            if (entityIdLower.includes('home_assistant_core') ||
-                entityIdLower.includes('home_assistant_supervisor') ||
-                entityIdLower.includes('home_assistant_operating_system') ||
-                nameLower.includes('home assistant core') ||
-                nameLower.includes('control hub core') ||
-                nameLower.includes('supervisor') ||
-                nameLower.includes('operating system')) {
-                categories.system.push({
-                    id,
-                    name,
-                    icon: Activity,
-                    priority: entityIdLower.includes('core') ? 1 : entityIdLower.includes('supervisor') ? 2 : 3
-                });
-            }
-            // ESPHome device firmware updates
-            else if (entityIdLower.includes('firmware') ||
-                nameLower.includes('firmware') ||
-                entityIdLower.includes('esphome') && !entityIdLower.includes('_update')) {
-                categories.esphome.push({
-                    id,
-                    name,
-                    icon: Cpu,
-                    priority: 99
-                });
-            }
-            // Add-on updates (everything else that's not firmware)
-            else {
-                // Assign appropriate icons based on add-on type
-                let icon = Settings;
-                if (nameLower.includes('zigbee') || nameLower.includes('matter') || nameLower.includes('z-wave')) {
-                    icon = Wifi;
-                } else if (nameLower.includes('music') || nameLower.includes('media')) {
-                    icon = Music;
-                } else if (nameLower.includes('code') || nameLower.includes('editor')) {
-                    icon = Settings;
-                } else if (nameLower.includes('esphome')) {
-                    icon = Cpu;
-                }
-
-                categories.addons.push({
-                    id,
-                    name,
-                    icon,
-                    priority: 99
-                });
-            }
-        });
-
-        // Sort each category alphabetically by name, with priority items first
-        Object.keys(categories).forEach(category => {
-            categories[category].sort((a, b) => {
-                if (a.priority !== b.priority) {
-                    return a.priority - b.priority;
-                }
-                return a.name.localeCompare(b.name);
-            });
-        });
-
-        return categories;
-    }, [hassStates]);
+    const categorizedUpdates = useMemo(() => categorizeUpdates(hassStates), [hassStates]);
 
     const handleInstallUpdate = async (entityId, entityName, entity) => {
         // Check if update is already in progress (from HA state)
@@ -190,7 +95,7 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
                         <Activity size={20} />
                     </div>
                     <div className="text-left leading-tight">
-                        <div className="text-xs sm:text-sm text-slate-200 tracking-wide">VŒRYNTH OS</div>
+                        <div className="text-xs sm:text-sm text-slate-200 tracking-wide">{APP_NAME}</div>
                         <div className="text-[11px] sm:text-xs text-slate-500">Check for updates</div>
                     </div>
                 </button>
@@ -215,7 +120,7 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
                                             <CompanyLogo className="w-full h-full" />
                                         </div>
                                         <div>
-                                            <h3 className="text-lg font-serif text-slate-200 leading-snug">VŒRYNTH OS</h3>
+                                            <h3 className="text-lg font-serif text-slate-200 leading-snug">{APP_NAME}</h3>
                                             <p className="text-[11px] text-slate-400 mt-0.5">Château Command Interface</p>
                                         </div>
                                     </div>
@@ -241,7 +146,7 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
                                 <div className="text-center space-y-2">
                                     <h4 className="text-xl font-serif text-slate-200">You're Up to Date</h4>
                                     <p className="text-slate-400 text-sm max-w-md mx-auto">
-                                        VŒRYNTH OS is running the latest version
+                                        {APP_NAME} is running the latest version
                                     </p>
                                 </div>
 
@@ -249,7 +154,7 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
                                 <div className="bg-slate-800/50 rounded-xl p-4 space-y-3">
                                     <div className="flex justify-between items-center">
                                         <span className="text-xs text-slate-400">Current Version</span>
-                                        <span className={`text-xs ${colors.text400}`}>5.0.2</span>
+                                        <span className={`text-xs ${colors.text400}`}>{APP_VERSION}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-xs text-slate-400">Release Date</span>
@@ -267,7 +172,7 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
                                     <div className="text-xs text-blue-300">
                                         <p className="font-medium mb-1">Automatic Updates</p>
                                         <p className="text-blue-400/80">
-                                            VŒRYNTH OS will automatically check for updates. You'll be notified when a new version is available.
+                                            {APP_BRAND} OS will automatically check for updates. You'll be notified when a new version is available.
                                         </p>
                                     </div>
                                 </div>
@@ -298,7 +203,7 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {categorizedUpdates.system.map((update, idx) => {
-                            const entity = useEntity(hassStates, update.id, { state: 'off', attributes: { latest_version: 'N/A', installed_version: 'N/A', in_progress: false } });
+                            const entity = createHassEntityShape(update.id, hassStates?.[update.id], { state: 'off', attributes: { latest_version: 'N/A', installed_version: 'N/A', in_progress: false } });
                             const hasUpdate = entity.state === 'on';
                             const isUpdating = updatingEntities[update.id] || entity.attributes.in_progress;
                             const updateError = updateErrors[update.id];
@@ -387,7 +292,7 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {categorizedUpdates.addons.map((update, idx) => {
-                            const entity = useEntity(hassStates, update.id, { state: 'off', attributes: { latest_version: 'N/A', installed_version: 'N/A', in_progress: false } });
+                            const entity = createHassEntityShape(update.id, hassStates?.[update.id], { state: 'off', attributes: { latest_version: 'N/A', installed_version: 'N/A', in_progress: false } });
                             const hasUpdate = entity.state === 'on';
                             const isUpdating = updatingEntities[update.id] || entity.attributes.in_progress;
                             const updateError = updateErrors[update.id];
@@ -476,7 +381,7 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {categorizedUpdates.esphome.map((update, idx) => {
-                            const entity = useEntity(hassStates, update.id, { state: 'off', attributes: { latest_version: 'N/A', installed_version: 'N/A', in_progress: false } });
+                            const entity = createHassEntityShape(update.id, hassStates?.[update.id], { state: 'off', attributes: { latest_version: 'N/A', installed_version: 'N/A', in_progress: false } });
                             const hasUpdate = entity.state === 'on';
                             const isUpdating = updatingEntities[update.id] || entity.attributes.in_progress;
                             const updateError = updateErrors[update.id];
@@ -565,7 +470,7 @@ const UpdatesView = ({ editMode = false, onCardEdit = null }) => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {categorizedUpdates.other.map((update, idx) => {
-                            const entity = useEntity(hassStates, update.id, { state: 'off', attributes: { latest_version: 'N/A', installed_version: 'N/A', in_progress: false } });
+                            const entity = createHassEntityShape(update.id, hassStates?.[update.id], { state: 'off', attributes: { latest_version: 'N/A', installed_version: 'N/A', in_progress: false } });
                             const hasUpdate = entity.state === 'on';
                             const isUpdating = updatingEntities[update.id] || entity.attributes.in_progress;
                             const updateError = updateErrors[update.id];

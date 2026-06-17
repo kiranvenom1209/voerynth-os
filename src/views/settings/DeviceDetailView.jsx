@@ -1,14 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ArrowLeft, Edit, Trash2, MapPin, Smartphone, List, ChevronRight, AlertCircle,
   Settings as SettingsIcon, Download, Thermometer, Zap, Wind, Volume2,
-  RotateCw, Power, Eye, Activity, Clock, Plus
+  RotateCw, Power, Activity, Clock, Plus
 } from 'lucide-react';
 import { useSettingsNav } from '../SettingsView';
-import { useAccentColor } from '../../context/AccentColorContext';
 import { useHomeAssistant } from '../../context/HomeAssistantContext';
 import useHAStore from '../../stores/haStore';
 import DeviceEditModal from '../../components/DeviceEditModal';
+import { useToast } from '../../context/ToastContext';
 
 /**
  * Device Detail View
@@ -16,9 +16,9 @@ import DeviceEditModal from '../../components/DeviceEditModal';
  */
 const DeviceDetailView = ({ deviceId }) => {
   const { navigate } = useSettingsNav();
-  const { colors } = useAccentColor();
-  const { callService } = useHomeAssistant();
-  const { devices, devicesById, entityRegistry, areasById, configEntriesById, statesByEntityId, removeDevice } = useHAStore();
+  const { callService, hassStates } = useHomeAssistant();
+  const { devicesById, entityRegistry, areasById, configEntriesById, statesByEntityId, removeDevice } = useHAStore();
+  const { showToast } = useToast();
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [downloadingDiagnostics, setDownloadingDiagnostics] = useState(false);
@@ -46,6 +46,46 @@ const DeviceDetailView = ({ deviceId }) => {
     return device.config_entries.map(entryId => configEntriesById[entryId]).filter(Boolean);
   }, [device, configEntriesById]);
 
+  const deviceName = device?.name_by_user || device?.name || 'Unnamed Device';
+  const getEntityState = useCallback(
+    (entityId) => statesByEntityId[entityId] || hassStates?.[entityId],
+    [statesByEntityId, hassStates]
+  );
+
+  // Get control entities (switches, lights, fans, etc.)
+  const controlEntities = useMemo(() => {
+    return deviceEntities.filter(e => {
+      const domain = e.entity_id.split('.')[0];
+      return ['switch', 'light', 'fan', 'cover', 'climate', 'lock', 'media_player'].includes(domain);
+    });
+  }, [deviceEntities]);
+
+  // Get sensor entities
+  const sensorEntities = useMemo(() => {
+    return deviceEntities.filter(e => {
+      const domain = e.entity_id.split('.')[0];
+      return ['sensor', 'binary_sensor'].includes(domain);
+    });
+  }, [deviceEntities]);
+
+  // Get recent activity (last 5 state changes)
+  const recentActivity = useMemo(() => {
+    const activities = [];
+    deviceEntities.forEach(entity => {
+      const state = getEntityState(entity.entity_id);
+      if (state?.last_changed) {
+        activities.push({
+          entity_id: entity.entity_id,
+          name: entity.name || state.attributes?.friendly_name || entity.entity_id,
+          state: state.state,
+          last_changed: state.last_changed,
+          attributes: state.attributes
+        });
+      }
+    });
+    return activities.sort((a, b) => new Date(b.last_changed) - new Date(a.last_changed)).slice(0, 10);
+  }, [deviceEntities, getEntityState]);
+
   if (!device) {
     return (
       <div className="space-y-6">
@@ -68,53 +108,6 @@ const DeviceDetailView = ({ deviceId }) => {
       </div>
     );
   }
-
-  const deviceName = device.name_by_user || device.name || 'Unnamed Device';
-
-  // Group entities by domain
-  const entitiesByDomain = useMemo(() => {
-    const grouped = {};
-    deviceEntities.forEach(entity => {
-      const domain = entity.entity_id.split('.')[0];
-      if (!grouped[domain]) grouped[domain] = [];
-      grouped[domain].push(entity);
-    });
-    return grouped;
-  }, [deviceEntities]);
-
-  // Get control entities (switches, lights, fans, etc.)
-  const controlEntities = useMemo(() => {
-    return deviceEntities.filter(e => {
-      const domain = e.entity_id.split('.')[0];
-      return ['switch', 'light', 'fan', 'cover', 'climate', 'lock', 'media_player'].includes(domain);
-    });
-  }, [deviceEntities]);
-
-  // Get sensor entities
-  const sensorEntities = useMemo(() => {
-    return deviceEntities.filter(e => {
-      const domain = e.entity_id.split('.')[0];
-      return ['sensor', 'binary_sensor'].includes(domain);
-    });
-  }, [deviceEntities]);
-
-  // Get recent activity (last 5 state changes)
-  const recentActivity = useMemo(() => {
-    const activities = [];
-    deviceEntities.forEach(entity => {
-      const state = statesByEntityId[entity.entity_id];
-      if (state?.last_changed) {
-        activities.push({
-          entity_id: entity.entity_id,
-          name: entity.name || state.attributes?.friendly_name || entity.entity_id,
-          state: state.state,
-          last_changed: state.last_changed,
-          attributes: state.attributes
-        });
-      }
-    });
-    return activities.sort((a, b) => new Date(b.last_changed) - new Date(a.last_changed)).slice(0, 10);
-  }, [deviceEntities, statesByEntityId]);
 
   // Helper to format time ago
   const timeAgo = (dateString) => {
@@ -141,12 +134,14 @@ const DeviceDetailView = ({ deviceId }) => {
         level: 'info'
       });
 
-      // In a real implementation, this would trigger a download
-      // For now, we'll just show a notification
-      alert(`Diagnostics for ${deviceName} would be downloaded here.\n\nDevice ID: ${deviceId}\nEntities: ${deviceEntities.length}`);
+      showToast({
+        type: 'info',
+        title: 'Diagnostics Requested',
+        message: `${deviceName}: ${deviceEntities.length} entities. Download API is not wired yet.`,
+      });
     } catch (error) {
       console.error('Failed to download diagnostics:', error);
-      alert('Failed to download diagnostics. Check console for details.');
+      showToast({ type: 'error', title: 'Diagnostics Failed', message: error.message || 'Check console for details.' });
     } finally {
       setDownloadingDiagnostics(false);
     }
@@ -165,24 +160,32 @@ const DeviceDetailView = ({ deviceId }) => {
       navigate('/settings/devices-services');
     } catch (error) {
       console.error('Failed to delete device:', error);
-      alert('Failed to delete device. Check console for details.');
+      showToast({ type: 'error', title: 'Delete Failed', message: error.message || 'Check console for details.' });
     }
   };
 
   const handleAddScene = () => {
-    // Navigate to scene creation with this device pre-selected
-    alert(`Create scene with ${deviceName}\n\nThis would open the scene editor with this device's entities pre-selected.`);
+    showToast({
+      type: 'info',
+      title: 'Scene Editor Not Wired',
+      message: `${deviceName} can be inspected here; creating scenes needs the local editor backend.`,
+    });
   };
 
   const handleAddScript = () => {
-    // Navigate to script creation with this device pre-selected
-    alert(`Create script with ${deviceName}\n\nThis would open the script editor with this device's entities pre-selected.`);
+    showToast({
+      type: 'info',
+      title: 'Script Editor Not Wired',
+      message: `${deviceName} can be inspected here; creating scripts needs the local editor backend.`,
+    });
   };
 
   const handleAddToDashboard = (entityIds) => {
-    // Add entities to dashboard
-    const entityList = entityIds.map(id => `  - ${id}`).join('\n');
-    alert(`Add to dashboard:\n\n${entityList}\n\nThis would add these entities to your dashboard.`);
+    showToast({
+      type: 'info',
+      title: 'Dashboard Add Not Wired',
+      message: `${entityIds.length} entities selected. Dashboard layout persistence is not connected yet.`,
+    });
   };
 
   return (
@@ -312,7 +315,7 @@ const DeviceDetailView = ({ deviceId }) => {
             ) : (
               <div className="space-y-3 sm:space-y-4">
                 {controlEntities.map(entity => {
-                  const state = statesByEntityId[entity.entity_id];
+                  const state = getEntityState(entity.entity_id);
                   const domain = entity.entity_id.split('.')[0];
                   const friendlyName = entity.name || state?.attributes?.friendly_name || entity.entity_id;
                   const isOn = state?.state === 'on';
@@ -420,19 +423,25 @@ const DeviceDetailView = ({ deviceId }) => {
               <h2 className="text-base font-semibold text-slate-100 mb-4">Sensors</h2>
               <div className="space-y-3">
                 {sensorEntities.map(entity => {
-                  const state = statesByEntityId[entity.entity_id];
+                  const state = getEntityState(entity.entity_id);
                   const friendlyName = entity.name || state?.attributes?.friendly_name || entity.entity_id;
                   const value = state?.state || 'unknown';
                   const unit = state?.attributes?.unit_of_measurement || '';
+                  const displayValue = unit ? `${value} ${unit}` : value;
 
                   return (
-                    <div key={entity.entity_id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Thermometer className="w-4 h-4 text-slate-400" />
-                        <span className="text-sm text-slate-300">{friendlyName}</span>
+                    <div key={entity.entity_id} className="flex items-center justify-between gap-3 min-w-0">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Thermometer className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                        <span className="text-sm text-slate-300 truncate" title={friendlyName}>
+                          {friendlyName}
+                        </span>
                       </div>
-                      <span className="text-sm font-medium text-slate-100">
-                        {value} {unit}
+                      <span
+                        className="text-sm font-medium text-slate-100 text-right shrink-0 max-w-[35%] truncate"
+                        title={displayValue}
+                      >
+                        {displayValue}
                       </span>
                     </div>
                   );
@@ -513,14 +522,14 @@ const DeviceDetailView = ({ deviceId }) => {
           ) : (
             <div className="space-y-1 sm:space-y-2">
               {deviceEntities.map(entity => {
-                const state = statesByEntityId[entity.entity_id];
+                const state = getEntityState(entity.entity_id);
                 const friendlyName = entity.name || state?.attributes?.friendly_name || entity.entity_id;
               const currentValue = state?.state ?? 'unavailable';
 
               return (
                 <button
                   key={entity.entity_id}
-                  onClick={() => navigate(`/settings/devices-services/entity/${entity.entity_id}`)}
+                  onClick={() => navigate(`/settings/devices-services/entity/${encodeURIComponent(entity.entity_id)}`)}
                   className="w-full flex items-center justify-between p-2 sm:p-3 hover:bg-slate-800/50 rounded-lg transition-colors text-left group"
                 >
                   <div className="flex-1 min-w-0">
@@ -599,4 +608,3 @@ const DeviceDetailView = ({ deviceId }) => {
 };
 
 export default DeviceDetailView;
-

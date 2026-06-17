@@ -1,9 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Settings, Trash2, RefreshCw, AlertCircle, CheckCircle, ChevronRight, Smartphone, List } from 'lucide-react';
 import { useSettingsNav } from '../SettingsView';
-import { useAccentColor } from '../../context/AccentColorContext';
 import useHAStore from '../../stores/haStore';
 import haClient from '../../services/haClient';
+import { useToast } from '../../context/ToastContext';
 
 /**
  * Integration Detail View
@@ -11,8 +11,8 @@ import haClient from '../../services/haClient';
  */
 const IntegrationDetailView = ({ domain }) => {
   const { navigate } = useSettingsNav();
-  const { colors } = useAccentColor();
   const { configEntriesByDomain, devices, entityRegistry, getIntegrationStats, refreshRegistries } = useHAStore();
+  const { showToast } = useToast();
   const [expandedEntry, setExpandedEntry] = useState(null);
   const [reloadingEntry, setReloadingEntry] = useState(null);
 
@@ -89,9 +89,10 @@ const IntegrationDetailView = ({ domain }) => {
 
       // Refresh registries to get updated state
       await refreshRegistries();
+      showToast({ type: 'success', title: 'Integration Reloaded', message: 'Configuration entry reloaded successfully.' });
     } catch (error) {
       console.error('❌ Failed to reload config entry:', error);
-      alert(`Failed to reload: ${error.message}`);
+      showToast({ type: 'error', title: 'Reload Failed', message: error.message || 'Failed to reload configuration entry.' });
     } finally {
       setReloadingEntry(null);
     }
@@ -255,7 +256,7 @@ const IntegrationDetailView = ({ domain }) => {
                           {entryEntities.map(entity => (
                             <button
                               key={entity.entity_id}
-                              onClick={() => navigate(`/settings/devices-services/entity/${entity.entity_id}`)}
+                              onClick={() => navigate(`/settings/devices-services/entity/${encodeURIComponent(entity.entity_id)}`)}
                               className="w-full flex items-center justify-between p-2 sm:p-3 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-lg transition-colors text-left"
                             >
                               <div className="min-w-0 flex-1">
@@ -287,4 +288,3 @@ const IntegrationDetailView = ({ domain }) => {
 };
 
 export default IntegrationDetailView;
-

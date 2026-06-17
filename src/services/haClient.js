@@ -7,7 +7,7 @@
 
 import {
   createConnection,
-  subscribeEntities,
+  createLongLivedTokenAuth,
   callService as wsCallService,
   ERR_CANNOT_CONNECT,
   ERR_INVALID_AUTH,
@@ -20,9 +20,9 @@ class HAClient {
   constructor() {
     this.connection = null;
     this.auth = null;
-    this.messageId = 1;
-    this.pendingRequests = new Map();
     this.haConnection = null; // Reference to existing HAConnection
+    this.hassUrl = null;
+    this.accessToken = null;
   }
 
   /**
@@ -42,20 +42,13 @@ class HAClient {
    */
   async connect(url, token) {
     try {
-      // Create auth object
-      this.auth = {
-        hassUrl: url,
-        access_token: token,
-      };
+      this.hassUrl = url.replace(/\/$/, '');
+      this.accessToken = token;
+      this.auth = createLongLivedTokenAuth(this.hassUrl, this.accessToken);
 
-      // Create WebSocket connection
       this.connection = await createConnection({
         auth: this.auth,
-        createSocket: async () => {
-          const wsUrl = url.replace('http://', 'ws://').replace('https://', 'wss://');
-          const socket = new WebSocket(`${wsUrl}/api/websocket`);
-          return socket;
-        }
+        setupRetry: 3
       });
 
       console.log('✅ HA Client connected via WebSocket');
@@ -85,16 +78,9 @@ class HAClient {
       throw new Error('Not connected to server');
     }
 
-    return new Promise((resolve, reject) => {
-      const id = this.messageId++;
-
-      this.pendingRequests.set(id, { resolve, reject });
-
-      this.connection.sendMessagePromise({
-        id,
-        type,
-        ...payload
-      }).then(resolve).catch(reject);
+    return this.connection.sendMessagePromise({
+      type,
+      ...payload
     });
   }
 
@@ -106,17 +92,41 @@ class HAClient {
    * @returns {Promise<function>} Unsubscribe function
    */
   async subscribeWS(type, payload, handler) {
-    if (!this.connection) {
+    const connection = this.haConnection?.connection || this.connection;
+
+    if (!connection) {
       throw new Error('Not connected to Home Assistant');
     }
 
-    return this.connection.subscribeMessage(
+    return connection.subscribeMessage(
       handler,
       {
         type,
         ...payload
       }
     );
+  }
+
+  async callSupervisorApi(method, endpoint, data = null, options = {}) {
+    const supervisorEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const payload = {
+      endpoint: supervisorEndpoint,
+      method: method.toLowerCase()
+    };
+
+    if (data) {
+      payload.data = data;
+    }
+
+    if (options.params) {
+      payload.params = options.params;
+    }
+
+    if (options.timeout !== undefined) {
+      payload.timeout = options.timeout;
+    }
+
+    return this.callWS('supervisor/api', payload);
   }
 
   /**
@@ -128,6 +138,13 @@ class HAClient {
    * @returns {Promise<any>}
    */
   async callService(domain, service, data = {}, target = {}) {
+    if (this.haConnection && this.haConnection.connected) {
+      return this.haConnection.callService(domain, service, {
+        ...data,
+        ...target
+      });
+    }
+
     if (!this.connection) {
       throw new Error('Not connected to server');
     }
@@ -142,6 +159,25 @@ class HAClient {
     }
   }
 
+  async parseResponse(response) {
+    const text = await response.text();
+    if (!text) return null;
+
+    try {
+      return JSON.parse(text);
+    } catch {
+      return text;
+    }
+  }
+
+  formatHttpError(response, result) {
+    const detail = typeof result === 'string'
+      ? result
+      : result?.message || result?.error || result?.result;
+
+    return `HTTP ${response.status}: ${detail || response.statusText}`;
+  }
+
   /**
    * Make a REST API call to Home Assistant
    * @param {string} endpoint - API endpoint (e.g., "/api/states")
@@ -153,21 +189,23 @@ class HAClient {
       throw new Error('Not authenticated');
     }
 
-    const url = `${this.auth.hassUrl}${endpoint}`;
+    const url = `${this.hassUrl}${endpoint}`;
     const response = await fetch(url, {
       ...options,
       headers: {
-        'Authorization': `Bearer ${this.auth.access_token}`,
+        'Authorization': `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
         ...options.headers
       }
     });
 
+    const result = await this.parseResponse(response);
+
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(this.formatHttpError(response, result));
     }
 
-    return response.json();
+    return result;
   }
 
   /**
@@ -195,12 +233,12 @@ class HAClient {
 
       console.log(`📤 HAClient.callApi: ${method} /api/${path}`);
       const response = await fetch(url, options);
+      const result = await this.parseResponse(response);
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(this.formatHttpError(response, result));
       }
 
-      const result = await response.json();
       console.log(`📥 HAClient.callApi response:`, result);
       return result;
     }
@@ -259,7 +297,8 @@ class HAClient {
       this.connection = null;
     }
     this.auth = null;
-    this.pendingRequests.clear();
+    this.hassUrl = null;
+    this.accessToken = null;
   }
 
   /**
@@ -267,7 +306,7 @@ class HAClient {
    * @returns {boolean}
    */
   isConnected() {
-    return this.connection !== null;
+    return this.haConnection?.connected || this.connection?.connected || false;
   }
 }
 

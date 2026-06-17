@@ -7,6 +7,7 @@ import { MapContainer, TileLayer, Marker, useMap, Circle, Polyline } from 'react
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useHomeAssistant } from '../../context/HomeAssistantContext';
+import estateEntities from '../../config/estateEntities';
 
 // Fix for default Leaflet icon paths in some bundlers
 delete L.Icon.Default.prototype._getIconUrl;
@@ -89,6 +90,7 @@ const getZoneColor = (name, zoneId) => {
 const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, cardId = null }) => {
     const { colors } = useAccentColor();
     const { hassStates } = useHomeAssistant();
+    const locationConfig = estateEntities.liveLocation;
     const [isInteractive, setIsInteractive] = useState(false);
     const [routeData, setRouteData] = useState(null);
     const [transitData, setTransitData] = useState(null); // { lineName, departure, from, to, direction }
@@ -96,9 +98,9 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
     const transitFetchRef = useRef(null);
 
     // Fetch the person entities
-    const kiran = useHassEntity('person.kiran');
-    const danny = useHassEntity('person.danny');
-    const ayanthiara = useHassEntity('person.ayanthiara');
+    const kiran = useHassEntity(locationConfig.people[0].entity);
+    const danny = useHassEntity(locationConfig.people[1].entity);
+    const ayanthiara = useHassEntity(locationConfig.homeProxy.entity);
 
 
     // Parse and validate coordinates for zones
@@ -123,11 +125,11 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
         const isKiranHome = kiran?.state?.toLowerCase() === 'home';
 
         const people = [
-            { id: 'kiran', name: 'Kiran', data: kiran },
-            { id: 'danny', name: 'Danny', data: danny },
+            { id: locationConfig.people[0].id, name: locationConfig.people[0].name, data: kiran },
+            { id: locationConfig.people[1].id, name: locationConfig.people[1].name, data: danny },
             {
-                id: 'ayanthiara',
-                name: isKiranHome ? null : 'Home', // Treat ayanthiara as "Home" marker when Kiran is away
+                id: locationConfig.homeProxy.id,
+                name: isKiranHome ? null : locationConfig.homeProxy.name,
                 data: ayanthiara
             }
         ];
@@ -141,7 +143,7 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
                 lat: p.data.attributes.latitude,
                 lon: p.data.attributes.longitude
             }));
-    }, [kiran, danny, ayanthiara]);
+    }, [kiran, danny, ayanthiara, locationConfig]);
 
     // Determine if Kiran is away from home
     const isKiranAway = kiran?.state && kiran.state.toLowerCase() !== 'home';
@@ -227,7 +229,7 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
                         fromId = fromData[0]?.id;
                         toId = toData[0]?.id;
                     }
-                } catch (e) {
+                } catch {
                     console.warn('[Tactical] Failed to resolve station IDs');
                 }
 

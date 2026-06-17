@@ -5,6 +5,7 @@ import { useHassEntity } from '../../context/HomeAssistantContext';
 import { renderPersonIcon } from '../../utils/randomIcon';
 import usePeopleStore from '../../stores/peopleStore';
 import { formatState } from '../../utils/utils';
+import estateEntities from '../../config/estateEntities';
 
 const ResidentItem = ({ person, idx }) => {
   const personEntity = useHassEntity(person.entity, { state: 'unknown' });
@@ -60,14 +61,13 @@ const ResidentsCard = ({ delay = 400, editMode = false, onEditClick = null, card
     initialize();
   }, [initialize]);
 
-  const kiranEntity = useHassEntity('person.kiran', { state: 'unknown' });
+  const residentConfig = estateEntities.residents;
+  const kiranEntity = useHassEntity(residentConfig.primaryPerson, { state: 'unknown' });
   const isKiranHome = kiranEntity.state?.toLowerCase() === 'home';
 
   const residents = [
-    { name: 'Kiran', entity: 'person.kiran', phone: 'sensor.kiran_s_phone_battery_level' },
-    { name: 'Danny', entity: 'person.danny', phone: 'sensor.danny_s_phone_battery_level' },
-    // Only show Home Server (Ayanthiara) when Kiran is away, and rename it to "Home"
-    ...(!isKiranHome ? [{ name: 'Home', entity: 'person.ayanthiara', phone: 'sensor.xiaomi_pad_5_battery' }] : [])
+    ...residentConfig.people,
+    ...(!isKiranHome ? [residentConfig.homeProxy] : [])
   ];
 
   return (

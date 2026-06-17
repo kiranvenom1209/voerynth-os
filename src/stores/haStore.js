@@ -241,6 +241,27 @@ const useHAStore = create((set, get) => ({
   },
 
   /**
+   * Remove an entity from the entity registry.
+   * @param {string} entityId - Entity ID to remove
+   */
+  removeEntity: async (entityId) => {
+    try {
+      console.log('Removing entity:', entityId);
+
+      await haClient.callWS('config/entity_registry/remove', {
+        entity_id: entityId,
+      });
+
+      await get().refreshRegistries();
+
+      console.log('Entity removed successfully');
+    } catch (error) {
+      console.error('Failed to remove entity:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Reset the store
    */
   reset: () => {
@@ -441,4 +462,3 @@ const useHAStore = create((set, get) => ({
 }));
 
 export default useHAStore;
-

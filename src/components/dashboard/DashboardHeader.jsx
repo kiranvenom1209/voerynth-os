@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { User, ShieldCheck, Wind } from 'lucide-react';
 import { useHassEntity } from '../../context/HomeAssistantContext';
 import { useAccentColor } from '../../context/AccentColorContext';
+import estateEntities from '../../config/estateEntities';
 
 
 const DashboardHeader = () => {
@@ -13,9 +14,10 @@ const DashboardHeader = () => {
   }, []);
   const { colors } = useAccentColor();
 
-  const kiranLocation = useHassEntity('person.kiran', { state: 'home' });
-  const personDetection = useHassEntity('binary_sensor.tc71_person_detection', { state: 'off' });
-  const fanState = useHassEntity('fan.air_circulator', { state: 'On' });
+  const { owner, sensors } = estateEntities.dashboard;
+  const kiranLocation = useHassEntity(owner.person, { state: 'home' });
+  const personDetection = useHassEntity(sensors.personDetection, { state: 'off' });
+  const fanState = useHassEntity(sensors.fan, { state: 'On' });
 
   const hour = time.getHours();
   const day = time.toLocaleDateString('en-US', { weekday: 'long' });
@@ -40,7 +42,7 @@ const DashboardHeader = () => {
         <div className="flex items-center flex-wrap gap-2 mt-3 md:mt-4 mb-4 md:mb-0">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-full border border-slate-700">
             <User size={14} className="text-blue-400" />
-            <span className="text-[10px] text-slate-300 capitalize">Kiran: {kiranLocation.state.replace('_', ' ')}</span>
+          <span className="text-[10px] text-slate-300 capitalize">{owner.name}: {kiranLocation.state.replace('_', ' ')}</span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 rounded-full border border-slate-700">
             <ShieldCheck

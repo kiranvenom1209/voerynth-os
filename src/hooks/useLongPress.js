@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react';
 /**
  * --- CUSTOM HOOK: USE LONG PRESS ---
  */
-const useLongPress = (callback = () => { }, ms = 500) => {
+const useLongPress = (callback = () => { }, ms = 500, options = {}) => {
     const [startLongPress, setStartLongPress] = useState(false);
+    const { shouldStart } = options;
 
     useEffect(() => {
         let timerId;
@@ -19,11 +20,16 @@ const useLongPress = (callback = () => { }, ms = 500) => {
         };
     }, [callback, ms, startLongPress]);
 
+    const startPress = (event) => {
+        if (shouldStart && !shouldStart(event)) return;
+        setStartLongPress(true);
+    };
+
     return {
-        onMouseDown: () => setStartLongPress(true),
+        onMouseDown: startPress,
         onMouseUp: () => setStartLongPress(false),
         onMouseLeave: () => setStartLongPress(false),
-        onTouchStart: () => setStartLongPress(true),
+        onTouchStart: startPress,
         onTouchEnd: () => setStartLongPress(false),
     };
 };

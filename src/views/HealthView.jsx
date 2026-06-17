@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Heart, Droplets, Activity, ArrowUp, ArrowDown, Footprints, Flame, TrendingUp } from 'lucide-react';
 import Card from '../components/Card';
 import { useHassEntity } from '../context/HomeAssistantContext';
+import estateEntities from '../config/estateEntities';
 
 // --- Background SVG trace components ---
 const EcgTrace = ({ color = 'red', opacity = 0.07 }) => (
@@ -44,8 +45,7 @@ const PulseTrace = ({ color = '#f59e0b', opacity = 0.06 }) => (
 );
 
 // --- Health Greeting Generator (converted from HA Jinja2 template) ---
-const getHealthGreeting = (hr, rhr, spo2, sys, dia, steps) => {
-	const hour = new Date().getHours();
+const getHealthGreeting = (hour, hr, spo2, sys, dia, steps) => {
 	const name = 'Kiran';
 
 	const greetings = {
@@ -132,7 +132,7 @@ const VitalBadge = ({ icon: Icon, label, value, color }) => {
 	};
 	return (
 		<div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${colorMap[color] || colorMap.blue}`}>
-			<Icon size={14} />
+			{React.createElement(Icon, { size: 14 })}
 			<span className="text-xs font-medium">{label}</span>
 			<span className="text-xs font-mono opacity-80">{value}</span>
 		</div>
@@ -142,22 +142,24 @@ const VitalBadge = ({ icon: Icon, label, value, color }) => {
 // --- Section heading ---
 const SectionHeading = ({ icon: Icon, title }) => (
 	<div className="flex items-center gap-3 px-2 pt-2">
-		<Icon size={20} className="text-slate-400" />
+		{React.createElement(Icon, { size: 20, className: 'text-slate-400' })}
 		<h3 className="text-lg font-serif text-slate-300 tracking-wide">{title}</h3>
 	</div>
 );
 
 const HealthView = ({ editMode = false, onCardEdit = null }) => {
 	// Pull all health entities
-	const heartRate = useHassEntity('sensor.sm_s918b_heart_rate', { state: '0' });
-	const restingHR = useHassEntity('sensor.sm_s918b_resting_heart_rate', { state: '0' });
-	const spo2 = useHassEntity('sensor.sm_s918b_oxygen_saturation', { state: '0' });
-	const systolic = useHassEntity('sensor.sm_s918b_systolic_blood_pressure', { state: '0' });
-	const diastolic = useHassEntity('sensor.sm_s918b_diastolic_blood_pressure', { state: '0' });
-	const dailySteps = useHassEntity('sensor.sm_s918b_daily_steps', { state: '0' });
-	const watchSteps = useHassEntity('sensor.galaxy_watch6_classic_1w4a_steps_sensor', { state: '0' });
-	const calories = useHassEntity('sensor.sm_s918b_total_calories_burned', { state: '0' });
-	const floors = useHassEntity('sensor.sm_s918b_daily_floors', { state: '0' });
+	const healthConfig = estateEntities.health;
+	const [greetingHour] = React.useState(() => new Date().getHours());
+	const heartRate = useHassEntity(healthConfig.heartRate, { state: '0' });
+	const restingHR = useHassEntity(healthConfig.restingHeartRate, { state: '0' });
+	const spo2 = useHassEntity(healthConfig.oxygenSaturation, { state: '0' });
+	const systolic = useHassEntity(healthConfig.systolicBloodPressure, { state: '0' });
+	const diastolic = useHassEntity(healthConfig.diastolicBloodPressure, { state: '0' });
+	const dailySteps = useHassEntity(healthConfig.dailySteps, { state: '0' });
+	const watchSteps = useHassEntity(healthConfig.watchSteps, { state: '0' });
+	const calories = useHassEntity(healthConfig.calories, { state: '0' });
+	const floors = useHassEntity(healthConfig.floors, { state: '0' });
 
 	// Parse values
 	const hrVal = parseInt(heartRate.state) || 0;
@@ -172,9 +174,8 @@ const HealthView = ({ editMode = false, onCardEdit = null }) => {
 
 	// Greeting (memoized to avoid re-randomizing on every render)
 	const { greeting, status } = useMemo(
-		() => getHealthGreeting(hrVal, rhrVal, spo2Val, sysVal, diaVal, stepsVal),
-		// Only re-generate when values change meaningfully
-		[hrVal > 0, spo2Val > 0, sysVal > 0, stepsVal > 8000]
+		() => getHealthGreeting(greetingHour, hrVal, spo2Val, sysVal, diaVal, stepsVal),
+		[greetingHour, hrVal, spo2Val, sysVal, diaVal, stepsVal]
 	);
 
 	return (
@@ -335,4 +336,3 @@ const HealthView = ({ editMode = false, onCardEdit = null }) => {
 };
 
 export default HealthView;
-

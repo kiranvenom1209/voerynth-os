@@ -2,6 +2,7 @@ import React from 'react';
 import { ShieldCheck, Sparkles, Zap } from 'lucide-react';
 import CompanyLogo from './CompanyLogo';
 import { useAccentColor } from '../context/AccentColorContext';
+import { APP_BRAND, APP_SYSTEM_NAME, APP_VERSION } from '../config/app';
 
 /**
  * --- FIRST TIME SETUP: WELCOME SCREEN ---
@@ -24,12 +25,12 @@ const WelcomeScreen = ({ onContinue }) => {
                         <CompanyLogo className={`w-16 sm:w-20 md:w-24 h-16 sm:h-20 md:h-24 ${colors.text} mx-auto ${colors.glow}`} />
                     </div>
                     <h1 className="font-serif text-3xl sm:text-4xl md:text-5xl text-slate-100 tracking-[0.3em] mb-3 sm:mb-4">
-                        VŒRYNTH
+                        {APP_BRAND}
                     </h1>
                     <p className={`text-sm sm:text-base md:text-lg ${colors.text}/80 uppercase tracking-[0.4em] mb-2`}>
-                        Système OS
+                        {APP_SYSTEM_NAME}
                     </p>
-                    <p className="text-xs sm:text-sm text-slate-400 tracking-wider">v5.0.1 • Stable</p>
+                    <p className="text-xs sm:text-sm text-slate-400 tracking-wider">v{APP_VERSION} • Stable</p>
                 </div>
 
                 <div className="bg-slate-900/40 backdrop-blur-xl border border-slate-800/50 rounded-2xl p-6 sm:p-8 mb-6 sm:mb-8 animate-[fadeIn_1s_ease-out_0.3s_both] shadow-2xl">

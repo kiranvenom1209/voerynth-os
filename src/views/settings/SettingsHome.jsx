@@ -14,7 +14,6 @@ import {
   Cloud,
   ChevronRight
 } from 'lucide-react';
-import { useAccentColor } from '../../context/AccentColorContext';
 import { useSettingsNav } from '../SettingsView';
 
 /**
@@ -22,7 +21,6 @@ import { useSettingsNav } from '../SettingsView';
  * Main settings landing page with tiles matching HA UX
  */
 const SettingsHome = () => {
-  const { colors } = useAccentColor();
   const { navigate } = useSettingsNav();
 
   const settingsSections = [
@@ -116,4 +114,3 @@ const SettingsHome = () => {
 };
 
 export default SettingsHome;
-

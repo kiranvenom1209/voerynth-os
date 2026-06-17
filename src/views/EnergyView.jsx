@@ -2,14 +2,16 @@ import React from 'react';
 import { TrendingUp, TrendingDown, Factory, ArrowRight, ArrowLeft, Home, Leaf, Zap, ArrowDown, ArrowUp, Flame } from 'lucide-react';
 import Card from '../components/Card';
 import { useHassEntity } from '../context/HomeAssistantContext';
+import estateEntities from '../config/estateEntities';
 
 const EnergyView = ({ particleCount = 3, editMode = false, onCardEdit = null }) => {
     // Get daily energy from utility meter helpers (in kWh)
-    const dailyEnergyIn = useHassEntity('sensor.eleused', { state: 0 });
-    const dailyEnergyOut = useHassEntity('sensor.daily_energy_export', { state: 0 });
+    const energyConfig = estateEntities.energy;
+    const dailyEnergyIn = useHassEntity(energyConfig.dailyImport, { state: 0 });
+    const dailyEnergyOut = useHassEntity(energyConfig.dailyExport, { state: 0 });
 
-    const co2Intensity = useHassEntity('sensor.electricity_maps_co2_intensity', { state: 0 });
-    const fossilFuel = useHassEntity('sensor.electricity_maps_grid_fossil_fuel_percentage', { state: 0 });
+    const co2Intensity = useHassEntity(energyConfig.co2Intensity, { state: 0 });
+    const fossilFuel = useHassEntity(energyConfig.fossilFuel, { state: 0 });
 
     // Parse daily energy values from utility meter helpers (kWh)
     const displayInValue = parseFloat(dailyEnergyIn.state) || 0;

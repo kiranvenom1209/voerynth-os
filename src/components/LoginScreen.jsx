@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import CompanyLogo from './CompanyLogo';
 import { useAccentColor } from '../context/AccentColorContext';
 import * as storage from '../utils/storage';
+import { APP_BRAND, APP_VERSION_LABEL } from '../config/app';
 
-const LoginScreen = ({ onConnect }) => {
+const LoginScreen = ({ onConnect, connectionError = null, onClearError = null }) => {
     const { colors } = useAccentColor();
     const [url, setUrl] = useState('');
     const [token, setToken] = useState('');
     const [showCredentials, setShowCredentials] = useState(false);
+    const [validationError, setValidationError] = useState(null);
 
     // Load saved credentials on mount
     useEffect(() => {
@@ -22,8 +24,17 @@ const LoginScreen = ({ onConnect }) => {
 
     const handleConnect = () => {
         if (url && token) {
+            setValidationError(null);
             onConnect(url, token);
+            return;
         }
+
+        setValidationError('Enter the Control Hub URL and access token.');
+    };
+
+    const clearErrors = () => {
+        setValidationError(null);
+        onClearError?.();
     };
 
     return (
@@ -43,15 +54,15 @@ const LoginScreen = ({ onConnect }) => {
                         <CompanyLogo className={`w-24 h-24 ${colors.text} ${colors.glow}`} />
                     </div>
                     <h1 className="font-serif text-4xl text-slate-100 tracking-[0.3em] mb-2">
-                        VŒRYNTH
+                        {APP_BRAND}
                     </h1>
                     <p className={`text-xs ${colors.text}/80 uppercase tracking-[0.5em] mb-4`}>
-                        Système OS v4.1.0
+                        {APP_VERSION_LABEL}
                     </p>
-                    <p className="text-sm text-red-400 flex items-center justify-center gap-2">
+                    <div className="text-sm text-red-400 flex items-center justify-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
                         System Offline
-                    </p>
+                    </div>
                 </div>
 
                 {/* Login Card */}
@@ -75,7 +86,10 @@ const LoginScreen = ({ onConnect }) => {
                                     <input
                                         type="text"
                                         value={url}
-                                        onChange={(e) => setUrl(e.target.value)}
+                                        onChange={(e) => {
+                                            setUrl(e.target.value);
+                                            clearErrors();
+                                        }}
                                         placeholder="http://controlhub.local:8123"
                                         className={`w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-slate-200 ${colors.focusBorder} outline-none font-mono text-sm transition-colors`}
                                     />
@@ -84,13 +98,21 @@ const LoginScreen = ({ onConnect }) => {
                                     <label className="block text-xs font-kumbh tracking-widest text-slate-500 mb-2">Access Token</label>
                                     <textarea
                                         value={token}
-                                        onChange={(e) => setToken(e.target.value)}
+                                        onChange={(e) => {
+                                            setToken(e.target.value);
+                                            clearErrors();
+                                        }}
                                         placeholder="eyJhbG..."
                                         rows={4}
                                         className={`w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-slate-200 ${colors.focusBorder} outline-none font-mono text-xs transition-colors resize-none`}
                                     />
                                 </div>
                             </div>
+                            {(validationError || connectionError) && (
+                                <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                                    {validationError || connectionError}
+                                </div>
+                            )}
                             <div className="flex gap-3 mt-6">
                                 <button
                                     onClick={() => setShowCredentials(false)}

@@ -10,10 +10,10 @@ const ConfigModal = ({ isOpen, onClose, onSave, initialUrl, initialToken }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={onClose}>
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:items-center" onClick={onClose}>
             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"></div>
             <div
-                className="relative bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-xl shadow-2xl w-full max-w-lg mx-4 animate-[fadeIn_0.2s_ease-out]"
+                className="relative my-4 max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur-xl animate-[fadeIn_0.2s_ease-out]"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="p-6 border-b border-slate-800">

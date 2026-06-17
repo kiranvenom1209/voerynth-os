@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { List, Edit, EyeOff, MapPin, Search } from 'lucide-react';
-import { useAccentColor } from '../../../context/AccentColorContext';
+import { List, EyeOff, MapPin, Search } from 'lucide-react';
 import { useSettingsNav } from '../../SettingsView';
 import useHAStore from '../../../stores/haStore';
 import { useHomeAssistant } from '../../../context/HomeAssistantContext';
@@ -10,7 +9,6 @@ import { useHomeAssistant } from '../../../context/HomeAssistantContext';
  * Shows all entities with navigation to entity detail pages
  */
 const EntitiesTab = () => {
-  const { colors } = useAccentColor();
   const { navigate } = useSettingsNav();
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -19,7 +17,9 @@ const EntitiesTab = () => {
 
   // Process entities with area names, device names, and current states
   const entitiesData = useMemo(() => {
-    return entityRegistry.map(entity => {
+    const registryIds = new Set(entityRegistry.map((entity) => entity.entity_id));
+
+    const registryEntities = entityRegistry.map(entity => {
       const area = entity.area_id ? areasById[entity.area_id] : null;
       const device = entity.device_id ? devicesById[entity.device_id] : null;
       const state = hassStates[entity.entity_id];
@@ -30,9 +30,28 @@ const EntitiesTab = () => {
         deviceName: device?.name_by_user || device?.name,
         state: state?.state || 'unknown',
         platform: entity.platform || 'unknown',
-        name: entity.name || entity.entity_id
+        name: entity.name || entity.original_name || state?.attributes?.friendly_name || entity.entity_id,
+        disabled: Boolean(entity.disabled_by),
+        hidden: Boolean(entity.hidden_by),
+        stateOnly: false
       };
-    }).sort((a, b) => a.name.localeCompare(b.name));
+    });
+
+    const stateOnlyEntities = Object.values(hassStates || {})
+      .filter((state) => state?.entity_id && !registryIds.has(state.entity_id))
+      .map((state) => ({
+        entity_id: state.entity_id,
+        area: 'Unassigned',
+        deviceName: null,
+        state: state.state || 'unknown',
+        platform: state.entity_id.split('.')[0],
+        name: state.attributes?.friendly_name || state.entity_id,
+        disabled: false,
+        hidden: false,
+        stateOnly: true
+      }));
+
+    return [...registryEntities, ...stateOnlyEntities].sort((a, b) => a.name.localeCompare(b.name));
   }, [entityRegistry, areasById, devicesById, hassStates]);
 
   // Filter entities based on search
@@ -80,7 +99,7 @@ const EntitiesTab = () => {
           {filteredEntities.map(entity => (
             <button
               key={entity.entity_id}
-              onClick={() => navigate(`/settings/devices-services/entity/${entity.entity_id}`)}
+              onClick={() => navigate(`/settings/devices-services/entity/${encodeURIComponent(entity.entity_id)}`)}
               className="w-full group bg-slate-800/50 border border-slate-700 rounded-lg p-3 sm:p-4 hover:border-cyan-500/50 transition-all text-left"
             >
               <div className="flex items-center justify-between gap-2 sm:gap-3">
@@ -96,6 +115,11 @@ const EntitiesTab = () => {
                     )}
                     {entity.hidden && (
                       <EyeOff className="w-3 h-3 sm:w-4 sm:h-4 text-slate-500 flex-shrink-0" title="Hidden" />
+                    )}
+                    {entity.stateOnly && (
+                      <span className="px-1.5 sm:px-2 py-0.5 bg-slate-700 text-slate-400 text-[10px] sm:text-xs rounded flex-shrink-0">
+                        State only
+                      </span>
                     )}
                   </div>
                   <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1 font-mono truncate">{entity.entity_id}</p>
@@ -134,4 +158,3 @@ const EntitiesTab = () => {
 };
 
 export default EntitiesTab;
-

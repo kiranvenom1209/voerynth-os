@@ -64,8 +64,8 @@ const DeviceEditModal = ({ isOpen, onClose, device }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-lg max-w-2xl w-full">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:items-center">
+      <div className="my-4 max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-lg border border-slate-700 bg-slate-900">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <div>
@@ -165,4 +165,3 @@ const DeviceEditModal = ({ isOpen, onClose, device }) => {
 };
 
 export default DeviceEditModal;
-

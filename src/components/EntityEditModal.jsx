@@ -7,7 +7,7 @@ import useHAStore from '../stores/haStore';
  * Entity Edit Modal
  * Allows editing entity name, icon, area, and entity_id
  */
-const EntityEditModal = ({ isOpen, onClose, entity }) => {
+const EntityEditModal = ({ isOpen, onClose, entity, onSaved }) => {
   const { colors } = useAccentColor();
   const { areas, updateEntity } = useHAStore();
   
@@ -68,7 +68,12 @@ const EntityEditModal = ({ isOpen, onClose, entity }) => {
         return;
       }
 
-      await updateEntity(entity.entity_id, updates);
+      const result = await updateEntity(entity.entity_id, updates);
+      onSaved?.({
+        previousEntityId: entity.entity_id,
+        nextEntityId: updates.new_entity_id || result?.entity_id || result?.entity_entry?.entity_id || entity.entity_id,
+        result,
+      });
       onClose();
     } catch (err) {
       setError(err.message || 'Failed to update entity');
@@ -206,4 +211,3 @@ const EntityEditModal = ({ isOpen, onClose, entity }) => {
 };
 
 export default EntityEditModal;
-

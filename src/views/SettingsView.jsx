@@ -1,10 +1,12 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Settings View
  *
  * Main settings navigation with internal routing for Settings pages
  */
 
-import React, { useState, createContext, useContext, useEffect, useRef } from 'react';
+import React, { useCallback, useState, createContext, useContext, useEffect, useRef } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useHomeAssistant } from '../context/HomeAssistantContext';
 import useHAStore from '../stores/haStore';
 import haClient from '../services/haClient';
@@ -31,12 +33,14 @@ export const useSettingsNav = () => {
 };
 
 const SettingsView = () => {
-  const [currentPath, setCurrentPath] = useState('/settings');
+  const location = useLocation();
+  const routerNavigate = useNavigate();
+  const currentPath = location.pathname.startsWith('/settings') ? location.pathname : '/settings';
   const [pathParams, setPathParams] = useState({});
   const initializedRef = useRef(false);
 
   const { hassStates, connectionStatus, getHAConnection } = useHomeAssistant();
-  const { initialize, loading } = useHAStore();
+  const { initialize, updateStates } = useHAStore();
 
   // Set up HAClient with existing connection - ONLY RUN ONCE (same pattern as DevicesEntitiesView)
   useEffect(() => {
@@ -65,11 +69,17 @@ const SettingsView = () => {
     }
   }, [connectionStatus, hassStates, getHAConnection, initialize]);
 
+  useEffect(() => {
+    if (hassStates && Object.keys(hassStates).length > 0) {
+      updateStates(hassStates);
+    }
+  }, [hassStates, updateStates]);
+
   // Navigation function
-  const navigate = (path, params = {}) => {
-    setCurrentPath(path);
+  const navigate = useCallback((path, params = {}) => {
     setPathParams(params);
-  };
+    routerNavigate(path);
+  }, [routerNavigate]);
 
   // Parse current route
   const renderRoute = () => {
@@ -112,7 +122,7 @@ const SettingsView = () => {
     }
 
     if (currentPath.startsWith('/settings/devices-services/entity/')) {
-      const entityId = currentPath.split('/').pop();
+      const entityId = decodeURIComponent(currentPath.split('/').pop());
       return <EntityDetailView entityId={entityId} />;
     }
 
@@ -130,4 +140,3 @@ const SettingsView = () => {
 };
 
 export default SettingsView;
-

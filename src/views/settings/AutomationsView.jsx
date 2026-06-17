@@ -4,6 +4,7 @@ import { useSettingsNav } from '../SettingsView';
 import { useAccentColor } from '../../context/AccentColorContext';
 import { useHomeAssistant } from '../../context/HomeAssistantContext';
 import useHAStore from '../../stores/haStore';
+import { useToast } from '../../context/ToastContext';
 
 /**
  * Automations & Scenes View
@@ -14,7 +15,17 @@ const AutomationsView = () => {
   const { colors } = useAccentColor();
   const { callService } = useHomeAssistant();
   const { statesByEntityId } = useHAStore();
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = React.useState('automations');
+  const [systemMessage, setSystemMessage] = React.useState(null);
+
+  const openEntityDetail = (entityId) => {
+    navigate(`/settings/devices-services/entity/${encodeURIComponent(entityId)}`);
+  };
+
+  const showInSystemMessage = (title, message) => {
+    setSystemMessage({ title, message });
+  };
 
   // Get all automations and scenes from states
   const automations = useMemo(() => {
@@ -64,25 +75,22 @@ const AutomationsView = () => {
       await callService('automation', service, { entity_id: entityId });
     } catch (error) {
       console.error('Failed to toggle automation:', error);
-      alert('Failed to toggle automation. Check console for details.');
+      showToast({ type: 'error', title: 'Automation Toggle Failed', message: error.message || 'Check console for details.' });
     }
   };
 
   const handleTriggerAutomation = async (entityId) => {
     try {
       await callService('automation', 'trigger', { entity_id: entityId });
-      alert('Automation triggered successfully!');
+      showToast({ type: 'success', title: 'Automation Triggered', message: 'The automation was triggered successfully.' });
     } catch (error) {
       console.error('Failed to trigger automation:', error);
-      alert('Failed to trigger automation. Check console for details.');
+      showToast({ type: 'error', title: 'Automation Trigger Failed', message: error.message || 'Check console for details.' });
     }
   };
 
   const handleEditAutomation = (entityId) => {
-    // Open Home Assistant automation editor in new tab
-    const haUrl = localStorage.getItem('ha_url') || 'http://localhost:8123';
-    const automationId = entityId.replace('automation.', '');
-    window.open(`${haUrl}/config/automation/edit/${automationId}`, '_blank');
+    openEntityDetail(entityId);
   };
 
   const handleDuplicateAutomation = async (entityId) => {
@@ -90,17 +98,18 @@ const AutomationsView = () => {
       // Get the automation config
       const state = statesByEntityId[entityId];
       if (!state) {
-        alert('Automation not found');
+        showToast({ type: 'warning', title: 'Automation Not Found', message: entityId });
         return;
       }
 
-      // In a real implementation, this would duplicate the automation
-      // For now, just show what would be duplicated
       console.log('Duplicating automation:', state);
-      alert(`Duplicate automation: ${state.attributes?.friendly_name || entityId}\n\nThis feature requires additional Home Assistant API calls to duplicate automations.`);
+      showInSystemMessage(
+        'Duplicate Automation',
+        `${state.attributes?.friendly_name || entityId} can be inspected here, but duplicating YAML-backed automations is not exposed through the current local API connection yet.`
+      );
     } catch (error) {
       console.error('Failed to duplicate automation:', error);
-      alert('Failed to duplicate automation. Check console for details.');
+      showToast({ type: 'error', title: 'Duplicate Failed', message: error.message || 'Check console for details.' });
     }
   };
 
@@ -108,25 +117,37 @@ const AutomationsView = () => {
     const state = statesByEntityId[entityId];
     const name = state?.attributes?.friendly_name || entityId;
 
-    if (!confirm(`Are you sure you want to delete "${name}"?\n\nThis action cannot be undone.`)) {
-      return;
-    }
-
     try {
-      // Note: Deleting automations requires file system access or specific HA API
-      // Most automations are stored in automations.yaml
       console.log('Delete automation requested:', entityId);
-      alert(`Delete automation: ${name}\n\nDeleting automations requires direct file system access or Home Assistant configuration API.\n\nPlease delete this automation from the Home Assistant UI.`);
+      showInSystemMessage(
+        'Delete Automation',
+        `${name} was not deleted. This project will not send you to the Home Assistant frontend; deletion needs a local automation-config API before it can be completed safely here.`
+      );
     } catch (error) {
       console.error('Failed to delete automation:', error);
-      alert('Failed to delete automation. Check console for details.');
+      showToast({ type: 'error', title: 'Delete Failed', message: error.message || 'Check console for details.' });
     }
   };
 
   const handleCreateAutomation = () => {
-    // Open Home Assistant automation creation page
-    const haUrl = localStorage.getItem('ha_url') || 'http://localhost:8123';
-    window.open(`${haUrl}/config/automation/new`, '_blank');
+    showInSystemMessage(
+      'Create Automation',
+      'Automation creation stays inside Voerynth OS now. The editor backend is not wired yet, so no external Home Assistant page was opened.'
+    );
+  };
+
+  const handleCreateScene = () => {
+    showInSystemMessage(
+      'Create Scene',
+      'Scene creation stays inside Voerynth OS now. The local scene editor is not wired yet, so no external Home Assistant page was opened.'
+    );
+  };
+
+  const handleCreateScript = () => {
+    showInSystemMessage(
+      'Create Script',
+      'Script creation stays inside Voerynth OS now. The local script editor is not wired yet, so no external Home Assistant page was opened.'
+    );
   };
 
   return (
@@ -185,6 +206,22 @@ const AutomationsView = () => {
         </div>
       </div>
 
+      {systemMessage && (
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <div>
+            <p className="font-medium text-amber-200">{systemMessage.title}</p>
+            <p className="mt-1 text-amber-100/80">{systemMessage.message}</p>
+          </div>
+          <button
+            onClick={() => setSystemMessage(null)}
+            className="text-amber-200/70 hover:text-amber-100"
+            aria-label="Dismiss message"
+          >
+            x
+          </button>
+        </div>
+      )}
+
       {/* Automations List */}
       {activeTab === 'automations' && (
         <div className="space-y-3">
@@ -226,6 +263,13 @@ const AutomationsView = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleTriggerAutomation(automation.entity_id)}
+                    className="p-1.5 sm:p-2 hover:bg-slate-700 rounded-lg transition-colors hidden sm:block"
+                    title="Trigger"
+                  >
+                    <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />
+                  </button>
                   <button
                     onClick={() => handleEditAutomation(automation.entity_id)}
                     className="p-1.5 sm:p-2 hover:bg-slate-700 rounded-lg transition-colors hidden sm:block"
@@ -275,10 +319,7 @@ const AutomationsView = () => {
               <h3 className="text-lg font-semibold text-slate-300 mb-2">No scenes found</h3>
               <p className="text-slate-500 mb-6">Create your first scene to get started</p>
               <button
-                onClick={() => {
-                  const haUrl = localStorage.getItem('ha_url') || 'http://localhost:8123';
-                  window.open(`${haUrl}/config/scene/new`, '_blank');
-                }}
+                onClick={handleCreateScene}
                 className="px-6 py-2 rounded-lg transition-colors"
                 style={{ backgroundColor: `${colors.accent}20`, color: colors.accent }}
               >
@@ -310,11 +351,7 @@ const AutomationsView = () => {
                   </div>
                   <div className="flex items-center gap-0.5 sm:gap-2 flex-shrink-0">
                     <button
-                      onClick={() => {
-                        const haUrl = localStorage.getItem('ha_url') || 'http://localhost:8123';
-                        const sceneId = scene.entity_id.replace('scene.', '');
-                        window.open(`${haUrl}/config/scene/edit/${sceneId}`, '_blank');
-                      }}
+                      onClick={() => openEntityDetail(scene.entity_id)}
                       className="p-1 sm:p-2 hover:bg-slate-700 rounded-lg transition-colors"
                       title="Edit"
                     >
@@ -324,10 +361,10 @@ const AutomationsView = () => {
                       onClick={async () => {
                         try {
                           await callService('scene', 'turn_on', { entity_id: scene.entity_id });
-                          alert(`Scene "${scene.attributes?.friendly_name || scene.entity_id}" activated!`);
+                          showToast({ type: 'success', title: 'Scene Activated', message: scene.attributes?.friendly_name || scene.entity_id });
                         } catch (error) {
                           console.error('Failed to activate scene:', error);
-                          alert('Failed to activate scene. Check console for details.');
+                          showToast({ type: 'error', title: 'Scene Activation Failed', message: error.message || 'Check console for details.' });
                         }
                       }}
                       className="px-1.5 sm:px-3 py-1 sm:py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded-lg transition-colors text-[10px] sm:text-sm whitespace-nowrap"
@@ -353,10 +390,7 @@ const AutomationsView = () => {
               <h3 className="text-lg font-semibold text-slate-300 mb-2">No scripts found</h3>
               <p className="text-slate-500 mb-6">Create your first script to get started</p>
               <button
-                onClick={() => {
-                  const haUrl = localStorage.getItem('ha_url') || 'http://localhost:8123';
-                  window.open(`${haUrl}/config/script/new`, '_blank');
-                }}
+                onClick={handleCreateScript}
                 className="px-6 py-2 rounded-lg transition-colors"
                 style={{ backgroundColor: `${colors.accent}20`, color: colors.accent }}
               >
@@ -390,11 +424,7 @@ const AutomationsView = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => {
-                          const haUrl = localStorage.getItem('ha_url') || 'http://localhost:8123';
-                          const scriptId = script.entity_id.replace('script.', '');
-                          window.open(`${haUrl}/config/script/edit/${scriptId}`, '_blank');
-                        }}
+                        onClick={() => openEntityDetail(script.entity_id)}
                         className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
                         title="Edit"
                       >
@@ -404,10 +434,10 @@ const AutomationsView = () => {
                         onClick={async () => {
                           try {
                             await callService('script', 'turn_on', { entity_id: script.entity_id });
-                            alert(`Script "${script.attributes?.friendly_name || script.entity_id}" started!`);
+                            showToast({ type: 'success', title: 'Script Started', message: script.attributes?.friendly_name || script.entity_id });
                           } catch (error) {
                             console.error('Failed to run script:', error);
-                            alert('Failed to run script. Check console for details.');
+                            showToast({ type: 'error', title: 'Script Run Failed', message: error.message || 'Check console for details.' });
                           }
                         }}
                         disabled={isRunning}
@@ -429,4 +459,3 @@ const AutomationsView = () => {
 };
 
 export default AutomationsView;
-

@@ -3,16 +3,18 @@ import { Sun, Moon, Wind } from 'lucide-react';
 import Card from '../Card';
 import { useHassEntity } from '../../context/HomeAssistantContext';
 import { useAccentColor } from '../../context/AccentColorContext';
+import estateEntities from '../../config/estateEntities';
 
 const WeatherCard = ({ delay = 150, editMode = false, onEditClick = null, cardId = null }) => {
   const { colors } = useAccentColor();
+  const weatherConfig = estateEntities.weather;
   
-  const outdoorTemp = useHassEntity('sensor.forecast_current_temperature', { state: '18.5' });
-  const outdoorHum = useHassEntity('sensor.forecast_current_humidity', { state: '45' });
-  const aqi = useHassEntity('sensor.air_quality_index', { state: '12' });
-  const sunEntity = useHassEntity('sun.sun', { state: 'below_horizon' });
-  const windSpeed = useHassEntity('sensor.forecast_current_wind_speed', { state: '0' });
-  const windBearing = useHassEntity('sensor.forecast_current_wind_bearing', { state: '0' });
+  const outdoorTemp = useHassEntity(weatherConfig.temperature, { state: '18.5' });
+  const outdoorHum = useHassEntity(weatherConfig.humidity, { state: '45' });
+  const aqi = useHassEntity(weatherConfig.airQuality, { state: '12' });
+  const sunEntity = useHassEntity(weatherConfig.sun, { state: 'below_horizon' });
+  const windSpeed = useHassEntity(weatherConfig.windSpeed, { state: '0' });
+  const windBearing = useHassEntity(weatherConfig.windBearing, { state: '0' });
   
   const isAboveHorizon = sunEntity.state === 'above_horizon';
   const bearingNum = parseFloat(windBearing.state);
@@ -27,7 +29,7 @@ const WeatherCard = ({ delay = 150, editMode = false, onEditClick = null, cardId
   const direction = !isNaN(bearingNum) ? getDirection(bearingNum) : 'N';
 
   return (
-    <Card title="Schmalkalden Climate" subtitle="Local Conditions" delay={delay} editMode={editMode} onEditClick={onEditClick} cardId={cardId}>
+    <Card title={weatherConfig.title} subtitle={weatherConfig.subtitle} delay={delay} editMode={editMode} onEditClick={onEditClick} cardId={cardId}>
       <div className="flex flex-col justify-between h-full">
         <div className="flex justify-between items-start">
           <div>
@@ -69,4 +71,3 @@ const WeatherCard = ({ delay = 150, editMode = false, onEditClick = null, cardId
 };
 
 export default WeatherCard;
-

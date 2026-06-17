@@ -5,7 +5,7 @@
  * Supports all flow step types: form, external, progress, create_entry, abort.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { X, Loader, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
 import { useAccentColor } from '../../context/AccentColorContext';
 import FormRenderer from './FormRenderer';
@@ -18,14 +18,7 @@ const IntegrationFlowModal = ({ isOpen, onClose, domain, context, entryId, onSuc
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Start flow when modal opens
-  useEffect(() => {
-    if (isOpen && domain) {
-      startFlow();
-    }
-  }, [isOpen, domain]);
-
-  const startFlow = async () => {
+  const startFlow = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -42,7 +35,14 @@ const IntegrationFlowModal = ({ isOpen, onClose, domain, context, entryId, onSuc
     } finally {
       setLoading(false);
     }
-  };
+  }, [context, domain, entryId]);
+
+  // Start flow when modal opens
+  useEffect(() => {
+    if (isOpen && domain) {
+      startFlow();
+    }
+  }, [isOpen, domain, startFlow]);
 
   const handleFormSubmit = async (values) => {
     try {
@@ -68,14 +68,12 @@ const IntegrationFlowModal = ({ isOpen, onClose, domain, context, entryId, onSuc
   };
 
   const handleExternalAuth = async () => {
-    if (flowState?.externalUrl) {
-      // Open external URL
-      window.open(flowState.externalUrl, '_blank');
-
-      // Start polling for completion
+    if (flowState?.externalUrl || flowState?.url) {
       try {
         setLoading(true);
-        const result = await flowState.pollForCompletion();
+        const result = flowState.pollForCompletion
+          ? await flowState.pollForCompletion()
+          : await flowEngine.pollExternalCompletion(flowState.flowId);
         setFlowState(result);
       } catch (err) {
         setError(err.message);
@@ -167,6 +165,47 @@ const IntegrationFlowModal = ({ isOpen, onClose, domain, context, entryId, onSuc
           </div>
         );
 
+      case FLOW_STEP_TYPES.EXTERNAL:
+        return (
+          <div className="space-y-5">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+              Complete authorization in the embedded panel, then press Continue.
+            </div>
+
+            {flowState.externalUrl || flowState.url ? (
+              <div className="overflow-hidden rounded-lg border border-slate-700 bg-slate-950">
+                <iframe
+                  src={flowState.externalUrl || flowState.url}
+                  title={`${domain} authorization`}
+                  className="h-[520px] w-full bg-slate-950"
+                />
+              </div>
+            ) : (
+              <div className="rounded-lg border border-slate-700 bg-slate-950 p-6 text-center text-slate-400">
+                This integration did not provide an authorization URL.
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-end pt-2">
+              <button
+                onClick={handleAbort}
+                className="px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExternalAuth}
+                className={`px-6 py-2 bg-${colors.name}-600 text-white rounded-lg hover:bg-${colors.name}-700 transition-colors disabled:opacity-50 inline-flex items-center gap-2`}
+                disabled={loading}
+              >
+                <ExternalLink className="w-4 h-4" />
+                {loading ? 'Checking...' : 'Continue'}
+              </button>
+            </div>
+          </div>
+        );
+
       case FLOW_STEP_TYPES.CREATE_ENTRY:
         return (
           <div className="flex flex-col items-center justify-center py-12">
@@ -205,8 +244,8 @@ const IntegrationFlowModal = ({ isOpen, onClose, domain, context, entryId, onSuc
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center">
+      <div className="my-4 max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
         {/* Header */}
         <div className={`flex items-center justify-between p-6 border-b border-slate-800`}>
           <div>
@@ -233,4 +272,3 @@ const IntegrationFlowModal = ({ isOpen, onClose, domain, context, entryId, onSuc
 };
 
 export default IntegrationFlowModal;
-

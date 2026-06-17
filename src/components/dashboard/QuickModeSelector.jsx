@@ -1,13 +1,31 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Video, Music, Coffee, Sparkles } from 'lucide-react';
 import { useHomeAssistant, useHassEntity } from '../../context/HomeAssistantContext';
 import { useAccentColor } from '../../context/AccentColorContext';
+import estateEntities from '../../config/estateEntities';
+import useOptimisticValue from '../../hooks/useOptimisticValue';
+
+const modeIcons = {
+  video: Video,
+  music: Music,
+  coffee: Coffee,
+  sparkles: Sparkles,
+};
 
 const QuickModeButton = ({ mode }) => {
   const { callService } = useHomeAssistant();
   const { colors } = useAccentColor();
   const entity = useHassEntity(mode.id, { state: 'off' });
-  const isActive = entity.state === 'on';
+  const [isActive, setOptimisticActive, rollbackActive] = useOptimisticValue(entity.state === 'on');
+
+  const handleToggle = useCallback(() => {
+    const nextActive = !isActive;
+    setOptimisticActive(nextActive);
+    callService('input_boolean', nextActive ? 'turn_on' : 'turn_off', { entity_id: mode.id }).catch((error) => {
+      console.warn('Failed to toggle quick mode:', error);
+      rollbackActive();
+    });
+  }, [callService, isActive, mode.id, rollbackActive, setOptimisticActive]);
 
   const colorMap = {
     blue: isActive 
@@ -26,22 +44,17 @@ const QuickModeButton = ({ mode }) => {
 
   return (
     <button
-      onClick={() => callService('input_boolean', 'toggle', { entity_id: mode.id })}
+      onClick={handleToggle}
       className={`flex items-center gap-2 px-3 md:px-4 py-2.5 md:py-2 rounded-lg border text-xs tracking-wider transition-all hover:scale-105 active:scale-95 touch-manipulation ${colorMap[mode.color]}`}
     >
-      <mode.icon size={16} className={isActive ? 'animate-pulse' : ''} />
+      {React.createElement(modeIcons[mode.icon] || Sparkles, { size: 16, className: isActive ? 'animate-pulse' : '' })}
       {mode.label}
     </button>
   );
 };
 
 const QuickModeSelector = () => {
-  const quickModes = [
-    { id: 'input_boolean.movie_mode', label: 'Movie', icon: Video, color: 'purple' },
-    { id: 'input_boolean.jazz_mode', label: 'Jazz', icon: Music, color: 'blue' },
-    { id: 'input_boolean.mode_relax', label: 'Relax', icon: Coffee, color: 'emerald' },
-    { id: 'input_boolean.pooja', label: 'Aarti', icon: Sparkles, color: 'amber' }
-  ];
+  const quickModes = estateEntities.dashboard.quickModes;
 
   return (
     <div className="flex gap-3 md:gap-4 flex-wrap animate-[slideUpFade_0.6s_ease-out] ml-4 sm:ml-6">
@@ -53,4 +66,3 @@ const QuickModeSelector = () => {
 };
 
 export default QuickModeSelector;
-

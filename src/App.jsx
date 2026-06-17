@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, ChevronRight, RefreshCw, Check } from 'lucide-react';
 import WelcomeScreen from './components/WelcomeScreen';
 import TermsScreen from './components/TermsScreen';
@@ -22,8 +23,11 @@ import AdvancedSettingsView from './views/AdvancedSettingsView';
 import SettingsView from './views/SettingsView';
 import { AccentColorProvider, useAccentColor } from './context/AccentColorContext';
 import { HomeAssistantProvider, useHomeAssistant } from './context/HomeAssistantContext';
+import { ToastProvider } from './context/ToastContext';
 import * as storage from './utils/storage';
 import MobileInstallPrompt from './components/MobileInstallPrompt';
+import { APP_BRAND, APP_ESTATE_NAME, APP_VERSION_LABEL } from './config/app';
+import { getActiveTabFromPath, getRouteForTab } from './utils/routes';
 
 // Lightweight clock component so only this small piece re-renders every second
 const HeaderClock = () => {
@@ -43,21 +47,27 @@ const HeaderClock = () => {
 
 // Inner component that uses the contexts
 const AppContent = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { accentColor, colors } = useAccentColor();
   const {
-    hassStates,
     connectionStatus,
+    connectionError,
+    connectionStage,
     systemRestarting,
     connect,
     disconnect,
-    callService,
     areOnlyBedroomBathroomLightsOn,
     getSavedCredentials,
+    clearConnectionError,
     isManualDisconnect,
     setManualDisconnect
   } = useHomeAssistant();
 
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const activeTab = getActiveTabFromPath(location.pathname);
+  const setActiveTab = useCallback((tabId) => {
+    navigate(getRouteForTab(tabId));
+  }, [navigate]);
   // Sidebar is controlled by the hamburger on mobile, but should always be expanded on wider screens
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const mainContentRef = useRef(null); // Ref for scrollable main content
@@ -73,7 +83,7 @@ const AppContent = () => {
   const [screenSaverBrightness, setScreenSaverBrightness] = useState(5);
   const [screenSaverActive, setScreenSaverActive] = useState(false);
   const [screenSaverDismissing, setScreenSaverDismissing] = useState(false);
-  const lastActivityRef = useRef(Date.now());
+  const lastActivityRef = useRef(0);
 
   // Edit Mode State
   const [editMode, setEditMode] = useState(false);
@@ -88,6 +98,7 @@ const AppContent = () => {
 
   // Load settings from storage on mount
   useEffect(() => {
+    lastActivityRef.current = Date.now();
     const loadSettings = async () => {
       const animSpeed = await storage.getItem('voerynth_animation_speed');
       const partCount = await storage.getItem('voerynth_particle_count');
@@ -197,14 +208,56 @@ const AppContent = () => {
   // --- COLOR PICKER STATE ---
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
   const [selectedLight, setSelectedLight] = useState(null);
+  const [colorPickerOrigin, setColorPickerOrigin] = useState(null);
 
   const [showSplash, setShowSplash] = useState(false);
   const [splashFadingOut, setSplashFadingOut] = useState(false);
-  const [splashMessage, setSplashMessage] = useState('Initializing');
+  const [startupStage, setStartupStage] = useState({
+    id: 'checking_setup',
+    message: 'Checking local setup state',
+    detail: 'Reading Vœrynth preferences',
+    progress: 8,
+  });
   const [dashboardZooming, setDashboardZooming] = useState(false);
-  const splashSequenceRef = useRef(false); // Prevents double animation
   const splashTimersRef = useRef([]); // Track all splash-related timers
   const isColdStartRef = useRef(true); // Track if this is the first app launch
+  const autoConnectAttemptedRef = useRef(false);
+
+  const visibleSplashStage = showSplash && connectionStage?.id !== 'idle'
+    ? connectionStage
+    : startupStage;
+  const splashMessage = visibleSplashStage?.message || 'Working';
+  const splashDetail = visibleSplashStage?.detail || null;
+  const splashProgress = Math.max(0, Math.min(100, visibleSplashStage?.progress || 0));
+
+  const clearSplashTimers = useCallback(() => {
+    splashTimersRef.current.forEach(timer => clearTimeout(timer));
+    splashTimersRef.current = [];
+  }, []);
+
+  const finishSplash = useCallback(({ zoom = true, delay = 500 } = {}) => {
+    clearSplashTimers();
+    const fadeTimer = setTimeout(() => {
+      setSplashFadingOut(true);
+      if (zoom) {
+        const zoomTimer = setTimeout(() => {
+          setDashboardZooming(true);
+        }, 250);
+        splashTimersRef.current.push(zoomTimer);
+      }
+
+      const hideTimer = setTimeout(() => {
+        setShowSplash(false);
+        setSplashFadingOut(false);
+        const resetTimer = setTimeout(() => {
+          setDashboardZooming(false);
+        }, 700);
+        splashTimersRef.current.push(resetTimer);
+      }, 650);
+      splashTimersRef.current.push(hideTimer);
+    }, delay);
+    splashTimersRef.current.push(fadeTimer);
+  }, [clearSplashTimers]);
 
   // Prevent body scroll when splash screen is active
   useEffect(() => {
@@ -218,8 +271,11 @@ const AppContent = () => {
     };
   }, [showSplash]);
 
+  useEffect(() => () => clearSplashTimers(), [clearSplashTimers]);
+
   // --- FIRST TIME SETUP STATE ---
   const [firstTimeSetup, setFirstTimeSetup] = useState(true);
+  const [setupChecked, setSetupChecked] = useState(false);
   const [setupStep, setSetupStep] = useState('welcome'); // 'welcome', 'terms', 'walkthrough'
 
   // State for config modal credentials
@@ -228,115 +284,132 @@ const AppContent = () => {
   // Check if setup is completed on mount and load credentials
   useEffect(() => {
     const checkSetup = async () => {
-      const setupCompleted = await storage.getItem('voerynth_setup_completed');
-      setFirstTimeSetup(!setupCompleted);
+      try {
+        setStartupStage({
+          id: 'checking_setup',
+          message: 'Checking local setup state',
+          detail: 'Reading setup completion and saved credentials',
+          progress: 8,
+        });
+        const setupCompleted = await storage.getItem('voerynth_setup_completed');
+        setFirstTimeSetup(!setupCompleted);
 
-      // Load credentials for config modal
-      const url = await storage.getItem('voerynth_ha_url');
-      const token = await storage.getItem('voerynth_ha_token');
-      setConfigCredentials({ url: url || '', token: token || '' });
+        // Load credentials for config modal
+        const url = await storage.getItem('voerynth_ha_url');
+        const token = await storage.getItem('voerynth_ha_token');
+        setConfigCredentials({ url: url || '', token: token || '' });
+        setStartupStage({
+          id: setupCompleted ? 'setup_loaded' : 'first_setup_required',
+          message: setupCompleted ? 'Setup state loaded' : 'First-time setup required',
+          detail: setupCompleted ? 'Preparing saved Control Hub connection' : 'Opening setup workflow',
+          progress: setupCompleted ? 12 : 100,
+        });
+      } finally {
+        setSetupChecked(true);
+      }
     };
     checkSetup();
   }, []);
 
-  // Splash sequence handler
-  const runSplashSequence = () => {
-    // Prevent double splash sequence (React Strict Mode or reconnect)
-    if (splashSequenceRef.current) {
-      return;
-    }
-    splashSequenceRef.current = true;
-
-    // Clear any existing timers
-    splashTimersRef.current.forEach(timer => clearTimeout(timer));
-    splashTimersRef.current = [];
-
-    // Show splash screen with sequential messages
-    setShowSplash(true);
-    setSplashFadingOut(false);
-    setDashboardZooming(false);
-    setSplashMessage('Initializing');
-
-    // Message sequence with elegant, slower timings
-    const messages = [
-      { text: 'Initializing', delay: 0 },
-      { text: 'Connecting to Control Hub', delay: 1500 },
-      { text: 'Loading Neural Interface', delay: 4500 },
-      { text: 'Synchronizing Systems', delay: 6000 },
-      { text: 'Ready', delay: 7500 }
-    ];
-
-    // Set up message timers
-    messages.forEach(({ text, delay }) => {
-      const timer = setTimeout(() => setSplashMessage(text), delay);
-      splashTimersRef.current.push(timer);
-    });
-
-    // Fade out after all messages (elegant 9 second total)
-    const fadeTimer = setTimeout(() => {
-      setSplashFadingOut(true);
-      const zoomTimer = setTimeout(() => {
-        setDashboardZooming(true);
-      }, 400);
-      splashTimersRef.current.push(zoomTimer);
-
-      const hideTimer = setTimeout(() => {
-        setShowSplash(false);
-        const resetTimer = setTimeout(() => {
-          setDashboardZooming(false);
-          splashSequenceRef.current = false;
-        }, 1000);
-        splashTimersRef.current.push(resetTimer);
-      }, 1000);
-      splashTimersRef.current.push(hideTimer);
-    }, 9000);
-    splashTimersRef.current.push(fadeTimer);
-  };
-
   // Connect to HA using context
-  const connectToHA = (url, token) => {
+  const connectToHA = useCallback((url, token) => {
     connect(url, token, {
       onConnected: () => {
         setConfigOpen(false);
-        runSplashSequence();
       }
     });
-  };
+  }, [connect]);
+
+  useEffect(() => {
+    if (!showSplash) return;
+
+    if (connectionStatus === 'connected' && connectionStage?.id === 'ready') {
+      finishSplash({ zoom: true, delay: 650 });
+      return;
+    }
+
+    if (connectionStatus === 'disconnected' && connectionStage?.id === 'failed') {
+      finishSplash({ zoom: false, delay: 1200 });
+    }
+  }, [showSplash, connectionStatus, connectionStage?.id, finishSplash]);
 
   // Auto-connect on mount (only show splash on cold start)
   useEffect(() => {
+    if (!setupChecked || firstTimeSetup || autoConnectAttemptedRef.current) {
+      return;
+    }
+
+    autoConnectAttemptedRef.current = true;
+    let cancelled = false;
+
     const autoConnect = async () => {
+      if (isColdStartRef.current) {
+        setStartupStage({
+          id: 'reading_credentials',
+          message: 'Reading saved Control Hub credentials',
+          detail: 'Checking local encrypted browser storage',
+          progress: 16,
+        });
+        setShowSplash(true);
+        setSplashFadingOut(false);
+        setDashboardZooming(false);
+        isColdStartRef.current = false;
+      }
+
       const { url, token } = await getSavedCredentials();
+      if (cancelled) return;
 
       if (url && token && !isManualDisconnect()) {
-        // Only show splash on cold start (first app launch)
-        if (isColdStartRef.current) {
-          setShowSplash(true);
-          isColdStartRef.current = false; // Mark that we've done the cold start
-        }
+        setStartupStage({
+          id: 'credentials_loaded',
+          message: 'Saved Control Hub credentials found',
+          detail: 'Starting websocket connection',
+          progress: 18,
+        });
         connectToHA(url, token);
       } else {
+        setStartupStage({
+          id: 'credentials_missing',
+          message: 'No saved Control Hub credentials',
+          detail: 'Opening the offline login screen',
+          progress: 100,
+        });
         setShowSplash(false);
       }
     };
     autoConnect();
-  }, []);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [setupChecked, firstTimeSetup, connectToHA, getSavedCredentials, isManualDisconnect]);
 
 
   const handleConfigSave = (url, token) => {
+    clearSplashTimers();
     setManualDisconnect(false);
-    setShowSplash(true); // Show splash on manual login
+    setStartupStage({
+      id: 'manual_credentials_submitted',
+      message: 'Using submitted Control Hub credentials',
+      detail: 'Starting websocket connection',
+      progress: 18,
+    });
+    setSplashFadingOut(false);
+    setDashboardZooming(false);
+    setShowSplash(true);
     connectToHA(url, token);
   };
 
   const handleLogout = () => {
+    clearSplashTimers();
     disconnect();
     setShowSplash(false);
     setSplashFadingOut(false);
   };
 
-  const handleColorPicker = (entityId) => {
+  const handleColorPicker = (entityId, origin = null) => {
     setSelectedLight(entityId);
+    setColorPickerOrigin(origin);
     setColorPickerOpen(true);
   };
 
@@ -353,31 +426,42 @@ const AppContent = () => {
             <div className="absolute inset-0 opacity-50" style={{ background: `radial-gradient(circle at 50% 50%, rgba(${colors.rgb}, 0.05), transparent 70%)` }}></div>
           </div>
 
-          <div className="relative z-10 flex flex-col items-center animate-[fadeIn_0.8s_ease-out]">
+          <div className="relative z-10 flex flex-col items-center">
             <div className="mb-8 animate-[float_3s_ease-in-out_infinite]">
               <CompanyLogo className={`w-24 h-24 ${colors.text} ${colors.glow}`} />
             </div>
 
             <h1 className="font-serif text-4xl text-slate-100 tracking-[0.3em] mb-2 animate-[fadeIn_1s_ease-out_0.3s_both]">
-              VŒRYNTH
+              {APP_BRAND}
             </h1>
 
             <p className="text-xs text-slate-300 uppercase tracking-[0.5em] mb-12 animate-[fadeIn_1s_ease-out_0.5s_both]">
-              Système OS v5.0.1
+              {APP_VERSION_LABEL}
             </p>
 
-            <div className="flex flex-col items-center gap-4 animate-[fadeIn_1s_ease-out_0.7s_both]">
+            <div className="flex flex-col items-center gap-4">
               <div className="flex gap-1.5">
                 <div className={`w-2 h-2 rounded-full ${colors.bgSolid} animate-[pulse_1.5s_ease-in-out_infinite]`}></div>
                 <div className={`w-2 h-2 rounded-full ${colors.bgSolid} animate-[pulse_1.5s_ease-in-out_infinite_0.2s]`}></div>
                 <div className={`w-2 h-2 rounded-full ${colors.bgSolid} animate-[pulse_1.5s_ease-in-out_infinite_0.4s]`}></div>
               </div>
+              <div className="w-64 h-1 rounded-full bg-slate-800/80 overflow-hidden border border-slate-700/40">
+                <div
+                  className={`h-full ${colors.bgSolid} transition-[width] duration-500 ease-out`}
+                  style={{ width: `${splashProgress}%` }}
+                />
+              </div>
               <span
-                key={splashMessage}
-                className="text-xs text-slate-500 uppercase tracking-widest animate-[fadeIn_0.6s_ease-in-out] min-w-[240px] text-center"
+                key={visibleSplashStage?.id || splashMessage}
+                className="text-xs text-slate-400 uppercase tracking-widest min-w-[280px] text-center"
               >
                 {splashMessage}
               </span>
+              {splashDetail && (
+                <span className="max-w-[340px] px-4 text-[11px] text-slate-500 text-center leading-relaxed">
+                  {splashDetail}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -401,7 +485,7 @@ const AppContent = () => {
           <div className="absolute inset-0 opacity-[0.02] bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
         </div>
 
-        {!firstTimeSetup && (
+        {setupChecked && !firstTimeSetup && (
           <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-full border border-slate-700/50 transition-all duration-500">
             {systemRestarting ? (
               <>
@@ -422,7 +506,7 @@ const AppContent = () => {
         )}
 
         {/* First Time Setup Flow */}
-        {firstTimeSetup && (
+        {setupChecked && firstTimeSetup && (
           <>
             {setupStep === 'welcome' && (
               <WelcomeScreen
@@ -434,7 +518,13 @@ const AppContent = () => {
                 onAccept={() => setSetupStep('walkthrough')}
                 onDecline={() => {
                   // User declined terms - exit the app or show a message
-                  alert('You must accept the terms to use Vœrynth Système OS');
+                  window.dispatchEvent(new CustomEvent('voerynth:toast', {
+                    detail: {
+                      type: 'warning',
+                      title: 'Terms Required',
+                      message: 'You must accept the terms to use Vœrynth Système OS.'
+                    }
+                  }));
                 }}
               />
             )}
@@ -459,8 +549,12 @@ const AppContent = () => {
         )}
 
         {/* Login Screen (when disconnected) */}
-        {!firstTimeSetup && connectionStatus === 'disconnected' && !showSplash && (
-          <LoginScreen onConnect={handleConfigSave} />
+        {setupChecked && !firstTimeSetup && connectionStatus === 'disconnected' && !showSplash && (
+          <LoginScreen
+            onConnect={handleConfigSave}
+            connectionError={connectionError}
+            onClearError={clearConnectionError}
+          />
         )}
 
         {/* Screen Saver */}
@@ -488,8 +582,12 @@ const AppContent = () => {
 
         <ColorPickerModal
           isOpen={colorPickerOpen}
-          onClose={() => setColorPickerOpen(false)}
+          onClose={() => {
+            setColorPickerOpen(false);
+            setColorPickerOrigin(null);
+          }}
           entityId={selectedLight}
+          origin={colorPickerOrigin}
         />
 
         <CardEditorModal
@@ -511,7 +609,7 @@ const AppContent = () => {
         />
 
         {/* Dashboard Content with iOS-style zoom animation */}
-        {!firstTimeSetup && (
+        {setupChecked && !firstTimeSetup && (
           <div className={`flex-1 flex ${showSplash ? 'opacity-0' :
             dashboardZooming ? 'animate-[springboardZoom_1s_cubic-bezier(0.25,0.46,0.45,0.94)]' :
               'opacity-100'
@@ -658,7 +756,7 @@ const AppContent = () => {
                       setIsLongPressing(false);
                     }}
                   >
-                    Vœrynth Estate
+                    {APP_ESTATE_NAME}
                   </span>
                   <ChevronRight size={12} className="mx-2 md:mx-3 text-slate-700 hidden sm:inline" />
                   <span className={`${colors.text} text-base md:text-xs tracking-widest animate-[fadeIn_0.5s_ease-out] capitalize`}>
@@ -777,10 +875,12 @@ const AppContent = () => {
 const App = () => {
   return (
     <AccentColorProvider>
-      <HomeAssistantProvider>
-        <AppContent />
-        <MobileInstallPrompt />
-      </HomeAssistantProvider>
+      <ToastProvider>
+        <HomeAssistantProvider>
+          <AppContent />
+          <MobileInstallPrompt />
+        </HomeAssistantProvider>
+      </ToastProvider>
     </AccentColorProvider>
   );
 };

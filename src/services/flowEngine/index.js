@@ -121,7 +121,7 @@ class FlowEngine {
    * @param {object} flowState - Current flow state
    * @returns {Promise<object>} Updated flow state
    */
-  async handleProgressStep(flowId, flowState) {
+  async handleProgressStep(flowId, _flowState) {
     return new Promise((resolve, reject) => {
       let attempts = 0;
       const maxAttempts = 60; // 60 seconds max

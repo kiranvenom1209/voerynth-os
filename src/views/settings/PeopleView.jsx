@@ -1,5 +1,5 @@
 import React, { useMemo, useEffect, useState } from 'react';
-import { ArrowLeft, Plus, Users, MapPin, Smartphone, Edit, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Plus, Users, MapPin, Smartphone, Edit, Trash2 } from 'lucide-react';
 import { useSettingsNav } from '../SettingsView';
 import { useAccentColor } from '../../context/AccentColorContext';
 import useHAStore from '../../stores/haStore';
@@ -14,11 +14,20 @@ import IconPicker from '../../components/IconPicker';
 const PeopleView = () => {
   const { navigate } = useSettingsNav();
   const { colors } = useAccentColor();
-  const { statesByEntityId, areas, areasById } = useHAStore();
-  const { customIcons, initialize, setCustomIcon, getCustomIcon } = usePeopleStore();
+  const { statesByEntityId, areas } = useHAStore();
+  const { initialize, setCustomIcon, getCustomIcon } = usePeopleStore();
   const [activeTab, setActiveTab] = useState('people');
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState(null);
+  const [systemMessage, setSystemMessage] = useState(null);
+
+  const openEntityDetail = (entityId) => {
+    navigate(`/settings/devices-services/entity/${encodeURIComponent(entityId)}`);
+  };
+
+  const showInSystemMessage = (title, message) => {
+    setSystemMessage({ title, message });
+  };
 
   // Initialize people store
   useEffect(() => {
@@ -49,13 +58,34 @@ const PeopleView = () => {
       .sort((a, b) => (a.attributes?.friendly_name || a.entity_id).localeCompare(b.attributes?.friendly_name || b.entity_id));
   }, [statesByEntityId]);
 
-  const getLocationDisplay = (state, attributes) => {
+  const getLocationDisplay = (state) => {
     if (state === 'home') return 'Home';
     if (state === 'not_home') return 'Away';
     // Check if it's an area
     const area = areas.find(a => a.name.toLowerCase() === state.toLowerCase());
     if (area) return area.name;
     return state;
+  };
+
+  const handleAddPerson = () => {
+    showInSystemMessage(
+      'Add Person',
+      'Person creation is not wired to the local config API yet. No external Home Assistant page was opened.'
+    );
+  };
+
+  const handleDeletePerson = (person) => {
+    showInSystemMessage(
+      'Delete Person',
+      `${person.attributes?.friendly_name || person.entity_id} was not deleted. Person removal needs a local person-config API before it can be completed safely here.`
+    );
+  };
+
+  const handleCreateZone = () => {
+    showInSystemMessage(
+      'Create Zone',
+      'Zone creation is not wired to the local config API yet. No external Home Assistant page was opened.'
+    );
   };
 
   return (
@@ -77,6 +107,7 @@ const PeopleView = () => {
           </div>
         </div>
         <button
+          onClick={handleAddPerson}
           className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg transition-colors flex items-center gap-1.5 sm:gap-2 flex-shrink-0 text-sm sm:text-base"
           style={{ backgroundColor: `${colors.accent}20`, color: colors.accent }}
         >
@@ -113,6 +144,25 @@ const PeopleView = () => {
         </div>
       </div>
 
+      {systemMessage && (
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <div className="flex gap-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+            <div>
+              <p className="font-medium text-amber-200">{systemMessage.title}</p>
+              <p className="mt-1 text-amber-100/80">{systemMessage.message}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setSystemMessage(null)}
+            className="text-amber-200/70 hover:text-amber-100"
+            aria-label="Dismiss message"
+          >
+            x
+          </button>
+        </div>
+      )}
+
       {/* People List */}
       {activeTab === 'people' && (
         <div className="space-y-3">
@@ -122,6 +172,7 @@ const PeopleView = () => {
             <h3 className="text-lg font-semibold text-slate-300 mb-2">No people found</h3>
             <p className="text-slate-500 mb-6">Add people to track presence in your home</p>
             <button
+              onClick={handleAddPerson}
               className="px-6 py-2 rounded-lg transition-colors"
               style={{ backgroundColor: `${colors.accent}20`, color: colors.accent }}
             >
@@ -183,7 +234,11 @@ const PeopleView = () => {
                     >
                       <Edit className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />
                     </button>
-                    <button className="p-1.5 sm:p-2 hover:bg-slate-700 rounded-lg transition-colors" title="Delete">
+                    <button
+                      onClick={() => handleDeletePerson(person)}
+                      className="p-1.5 sm:p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                      title="Delete"
+                    >
                       <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />
                     </button>
                   </div>
@@ -240,6 +295,13 @@ const PeopleView = () => {
                         )}
                       </div>
                     </div>
+                    <button
+                      onClick={() => openEntityDetail(tracker.entity_id)}
+                      className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+                      title="Open tracker"
+                    >
+                      <Edit className="w-4 h-4 text-slate-400" />
+                    </button>
                   </div>
                 </div>
               );
@@ -257,10 +319,7 @@ const PeopleView = () => {
               <h3 className="text-lg font-semibold text-slate-300 mb-2">No zones found</h3>
               <p className="text-slate-500 mb-6">Create zones to track when people enter or leave specific areas</p>
               <button
-                onClick={() => {
-                  const haUrl = localStorage.getItem('ha_url') || 'http://localhost:8123';
-                  window.open(`${haUrl}/config/zone`, '_blank');
-                }}
+                onClick={handleCreateZone}
                 className="px-6 py-2 rounded-lg transition-colors"
                 style={{ backgroundColor: `${colors.accent}20`, color: colors.accent }}
               >
@@ -302,10 +361,7 @@ const PeopleView = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => {
-                          const haUrl = localStorage.getItem('ha_url') || 'http://localhost:8123';
-                          window.open(`${haUrl}/config/zone`, '_blank');
-                        }}
+                        onClick={() => openEntityDetail(zone.entity_id)}
                         className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
                         title="Edit"
                       >
@@ -345,4 +401,3 @@ const PeopleView = () => {
 };
 
 export default PeopleView;
-

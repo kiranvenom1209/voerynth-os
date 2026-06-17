@@ -4,7 +4,31 @@ import CompanyLogo from '../components/CompanyLogo';
 import SystemLogsContent from '../components/SystemLogsContent';
 import { useAccentColor } from '../context/AccentColorContext';
 import { useHomeAssistant } from '../context/HomeAssistantContext';
+import { APP_BRAND, APP_ESTATE_NAME, APP_SYSTEM_NAME, APP_VERSION } from '../config/app';
 import * as storage from '../utils/storage';
+
+const SettingCard = ({ title, description, children, noHover = false, colors }) => (
+    <div className={`bg-slate-900/40 backdrop-blur border border-slate-800/50 rounded-xl p-6 transition-all duration-300 ${!noHover ? colors.borderHover : ''}`}>
+        <h3 className="text-lg font-serif text-slate-100 mb-2">{title}</h3>
+        <p className="text-xs text-slate-500 mb-4 tracking-wide">{description}</p>
+        {children}
+    </div>
+);
+
+const ToggleSwitch = ({ enabled, onChange, colors }) => (
+    <button
+        onClick={() => onChange(!enabled)}
+        className={`relative w-11 h-6 sm:w-14 sm:h-7 rounded-full border-2 transition-all duration-300 flex-shrink-0 ${enabled ? `${colors.bg} ${colors.borderSoft}` : 'bg-slate-700/80 border-slate-600'
+            }`}
+    >
+        <div
+            className={`absolute top-0.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full transition-all duration-300 shadow-md ${enabled
+                ? `left-5 sm:left-7 ${colors.bgSolid} ${colors.shadowGlow}`
+                : 'left-0.5 bg-slate-300'
+                }`}
+        />
+    </button>
+);
 
 const AdvancedSettingsView = ({
     animationSpeed,
@@ -61,29 +85,6 @@ const AdvancedSettingsView = ({
         }
     };
 
-    const SettingCard = ({ title, description, children, noHover = false }) => (
-        <div className={`bg-slate-900/40 backdrop-blur border border-slate-800/50 rounded-xl p-6 transition-all duration-300 ${!noHover ? colors.borderHover : ''}`}>
-            <h3 className="text-lg font-serif text-slate-100 mb-2">{title}</h3>
-            <p className="text-xs text-slate-500 mb-4 tracking-wide">{description}</p>
-            {children}
-        </div>
-    );
-
-    const ToggleSwitch = ({ enabled, onChange }) => (
-        <button
-            onClick={() => onChange(!enabled)}
-            className={`relative w-11 h-6 sm:w-14 sm:h-7 rounded-full border-2 transition-all duration-300 flex-shrink-0 ${enabled ? `${colors.bg} ${colors.borderSoft}` : 'bg-slate-700/80 border-slate-600'
-                }`}
-        >
-            <div
-                className={`absolute top-0.5 w-4 h-4 sm:w-5 sm:h-5 rounded-full transition-all duration-300 shadow-md ${enabled
-                    ? `left-5 sm:left-7 ${colors.bgSolid} ${colors.shadowGlow}`
-                    : 'left-0.5 bg-slate-300'
-                    }`}
-            />
-        </button>
-    );
-
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-4 mb-8">
@@ -92,7 +93,7 @@ const AdvancedSettingsView = ({
                 </div>
                 <div>
                     <h1 className="text-3xl font-serif text-slate-100">Advanced Settings</h1>
-                    <p className="text-sm text-slate-500 tracking-wide mt-1">Fine-tune your Vœrynth OS experience</p>
+                    <p className="text-sm text-slate-500 tracking-wide mt-1">Fine-tune your {APP_BRAND} OS experience</p>
                 </div>
             </div>
 
@@ -105,6 +106,7 @@ const AdvancedSettingsView = ({
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <SettingCard
+                        colors={colors}
                         title="Accent Color"
                         description="Choose the primary accent color for the interface"
                     >
@@ -129,6 +131,7 @@ const AdvancedSettingsView = ({
                     </SettingCard>
 
                     <SettingCard
+                        colors={colors}
                         title="Animation Speed"
                         description="Control the speed of UI animations"
                         noHover={true}
@@ -150,6 +153,7 @@ const AdvancedSettingsView = ({
                     </SettingCard>
 
                     <SettingCard
+                        colors={colors}
                         title="Reduced Motion"
                         description="Minimize animations for accessibility"
                     >
@@ -158,6 +162,7 @@ const AdvancedSettingsView = ({
                                 {reducedMotion ? 'Enabled' : 'Disabled'}
                             </span>
                             <ToggleSwitch
+                                colors={colors}
                                 enabled={reducedMotion}
                                 onChange={(val) => {
                                     setReducedMotion(val);
@@ -168,6 +173,7 @@ const AdvancedSettingsView = ({
                     </SettingCard>
 
                     <SettingCard
+                        colors={colors}
                         title="Particle Effects"
                         description="Number of particles in flow animations"
                         noHover={true}
@@ -190,6 +196,7 @@ const AdvancedSettingsView = ({
                     </SettingCard>
 
                     <SettingCard
+                        colors={colors}
                         title="Screen Saver"
                         description="Show logo and time on inactivity"
                     >
@@ -198,6 +205,7 @@ const AdvancedSettingsView = ({
                                 {screenSaverEnabled ? 'Enabled' : 'Disabled'}
                             </span>
                             <ToggleSwitch
+                                colors={colors}
                                 enabled={screenSaverEnabled}
                                 onChange={(val) => {
                                     setScreenSaverEnabled(val);
@@ -208,6 +216,7 @@ const AdvancedSettingsView = ({
                     </SettingCard>
 
                     <SettingCard
+                        colors={colors}
                         title="Screen Saver Timeout"
                         description="Seconds of inactivity before screen saver"
                         noHover={true}
@@ -232,6 +241,7 @@ const AdvancedSettingsView = ({
                     </SettingCard>
 
                     <SettingCard
+                        colors={colors}
                         title="Screen Saver Brightness"
                         description="Fixed brightness level when screen saver is active"
                         noHover={true}
@@ -260,6 +270,7 @@ const AdvancedSettingsView = ({
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <SettingCard
+                        colors={colors}
                         title="Control Hub Configuration"
                         description="Update connection URL and access token"
                     >
@@ -274,6 +285,7 @@ const AdvancedSettingsView = ({
 
 
                     <SettingCard
+                        colors={colors}
                         title="Disconnect"
                         description="Sign out and return to login screen"
                     >
@@ -297,6 +309,7 @@ const AdvancedSettingsView = ({
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <SettingCard
+                        colors={colors}
                         title="Restart Control Hub"
                         description="Safely restarts the Control Hub core. Automations will briefly pause."
                         noHover={systemRestarting}
@@ -382,6 +395,7 @@ const AdvancedSettingsView = ({
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <SettingCard
+                        colors={colors}
                         title="Debug Mode"
                         description="Show console logs and debug information"
                     >
@@ -390,6 +404,7 @@ const AdvancedSettingsView = ({
                                 {debugMode ? 'Enabled' : 'Disabled'}
                             </span>
                             <ToggleSwitch
+                                colors={colors}
                                 enabled={debugMode}
                                 onChange={(val) => {
                                     setDebugMode(val);
@@ -412,7 +427,7 @@ const AdvancedSettingsView = ({
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                             <span className="text-slate-500">Version</span>
-                            <p className="text-slate-200 font-mono">v5.0.2</p>
+                            <p className="text-slate-200 font-mono">v{APP_VERSION}</p>
                         </div>
                         <div>
                             <span className="text-slate-500">Build</span>
@@ -436,20 +451,20 @@ const AdvancedSettingsView = ({
                 >
                     <div className={`flex items-center justify-center gap-2 text-slate-300 group-hover:${colors.text400} transition-colors`}>
                         <Activity size={16} />
-                        <span className="text-sm font-medium tracking-wide">About Vœrynth OS</span>
+                        <span className="text-sm font-medium tracking-wide">About {APP_BRAND} OS</span>
                     </div>
                 </button>
             </div>
 
             {/* Animation Speed Modal */}
             {animationSpeedOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => setAnimationSpeedOpen(false)}>
+                <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:items-center" onClick={() => setAnimationSpeedOpen(false)}>
                     {/* Blurred backdrop */}
                     <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"></div>
 
                     {/* Centered modal */}
                     <div
-                        className="relative bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-xl overflow-hidden shadow-2xl w-full max-w-md mx-4 animate-[fadeIn_0.2s_ease-out]"
+                        className="relative my-4 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur-xl animate-[fadeIn_0.2s_ease-out]"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="p-6 border-b border-slate-800">
@@ -487,13 +502,13 @@ const AdvancedSettingsView = ({
 
             {/* Particle Count Modal */}
             {particleCountOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => setParticleCountOpen(false)}>
+                <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:items-center" onClick={() => setParticleCountOpen(false)}>
                     {/* Blurred backdrop */}
                     <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"></div>
 
                     {/* Centered modal */}
                     <div
-                        className="relative bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-xl overflow-hidden shadow-2xl w-full max-w-md mx-4 animate-[fadeIn_0.2s_ease-out]"
+                        className="relative my-4 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur-xl animate-[fadeIn_0.2s_ease-out]"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="p-6 border-b border-slate-800">
@@ -533,13 +548,13 @@ const AdvancedSettingsView = ({
 
             {/* Screen Saver Timeout Modal */}
             {screenSaverTimeoutOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => setScreenSaverTimeoutOpen(false)}>
+                <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:items-center" onClick={() => setScreenSaverTimeoutOpen(false)}>
                     {/* Blurred backdrop */}
                     <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"></div>
 
                     {/* Centered modal */}
                     <div
-                        className="relative bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-xl p-6 shadow-2xl w-full max-w-sm mx-4 animate-[fadeIn_0.2s_ease-out]"
+                        className="relative my-4 max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/95 p-6 shadow-2xl backdrop-blur-xl animate-[fadeIn_0.2s_ease-out]"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <h3 className="text-lg font-serif text-slate-200 mb-4">Screen Saver Timeout</h3>
@@ -574,13 +589,13 @@ const AdvancedSettingsView = ({
 
             {/* Screen Saver Brightness Modal */}
             {screenSaverBrightnessOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => setScreenSaverBrightnessOpen(false)}>
+                <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:items-center" onClick={() => setScreenSaverBrightnessOpen(false)}>
                     {/* Blurred backdrop */}
                     <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"></div>
 
                     {/* Centered modal */}
                     <div
-                        className="relative bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-xl p-6 shadow-2xl w-full max-w-sm mx-4 animate-[fadeIn_0.2s_ease-out]"
+                        className="relative my-4 max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/95 p-6 shadow-2xl backdrop-blur-xl animate-[fadeIn_0.2s_ease-out]"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <h3 className="text-lg font-serif text-slate-200 mb-4">Screen Saver Brightness</h3>
@@ -618,13 +633,13 @@ const AdvancedSettingsView = ({
 
             {/* About Modal */}
             {aboutOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => setAboutOpen(false)}>
+                <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:items-center" onClick={() => setAboutOpen(false)}>
                     {/* Blurred backdrop */}
                     <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"></div>
 
                     {/* Centered modal */}
                     <div
-                        className="relative bg-slate-900/95 backdrop-blur-xl border border-slate-700 rounded-xl overflow-hidden shadow-2xl w-full max-w-2xl mx-4 animate-[fadeIn_0.2s_ease-out] max-h-[90vh] overflow-y-auto"
+                        className="relative my-4 max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/95 shadow-2xl backdrop-blur-xl animate-[fadeIn_0.2s_ease-out]"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header with Logo */}
@@ -632,8 +647,8 @@ const AdvancedSettingsView = ({
                             <div className="flex justify-center mb-4">
                                 <CompanyLogo className={`w-16 h-16 ${colors.text}`} />
                             </div>
-                            <h1 className="font-serif text-2xl text-slate-100 tracking-[0.2em] mb-2">VŒRYNTH SYSTÈME OS</h1>
-                            <p className={`${colors.text}/80 text-sm tracking-[0.3em]`}>v5.0.2</p>
+                            <h1 className="font-serif text-2xl text-slate-100 tracking-[0.2em] mb-2">{APP_BRAND} {APP_SYSTEM_NAME}</h1>
+                            <p className={`${colors.text}/80 text-sm tracking-[0.3em]`}>v{APP_VERSION}</p>
                             <div className="mt-4 flex justify-center gap-6 text-xs text-slate-500">
                                 <div>
                                     <span className="text-slate-600">Build:</span> <span className="text-slate-400 font-mono">2026.03.04</span>
@@ -650,7 +665,7 @@ const AdvancedSettingsView = ({
                             <div>
                                 <h3 className={`${colors.text} font-serif text-base mb-3 tracking-wide`}>Created by</h3>
                                 <div className="space-y-2 text-slate-300">
-                                    <p><span className="text-slate-100 font-medium">Kiran Karthikeyan Achari</span> – System Architect & Lead Developer</p>
+                                    <p><span className="text-slate-100 font-medium">Kiran Karthikeyan Achari</span> - System Architect & Lead Developer</p>
                                 </div>
                             </div>
 
@@ -658,14 +673,14 @@ const AdvancedSettingsView = ({
                             <div>
                                 <h3 className={`${colors.text} font-serif text-base mb-3 tracking-wide`}>Design & Concept</h3>
                                 <p className="text-slate-300 leading-relaxed">
-                                    Vœrynth Estate Control Interface – a unified command deck for lighting, security, climate, media, and energy across the home.
+                                    {APP_ESTATE_NAME} Control Interface - a unified command deck for lighting, security, climate, media, and energy across the home.
                                 </p>
                             </div>
 
                             {/* Copyright */}
                             <div>
                                 <h3 className={`${colors.text} font-serif text-base mb-3 tracking-wide`}>Copyright</h3>
-                                <p className="text-slate-300">© 2026 Vœrynth Systèmé. All rights reserved.</p>
+                                <p className="text-slate-300">© 2026 Vœrynth Système. All rights reserved.</p>
                             </div>
 
                             {/* Technology Credits */}
@@ -702,13 +717,13 @@ const AdvancedSettingsView = ({
 
             {/* Restart Confirmation Modal */}
             {restartConfirmOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={() => setRestartConfirmOpen(false)}>
+                <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:items-center" onClick={() => setRestartConfirmOpen(false)}>
                     {/* Blurred backdrop */}
                     <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"></div>
 
                     {/* Centered modal */}
                     <div
-                        className="relative bg-slate-900/95 backdrop-blur-xl border border-red-500/30 rounded-xl overflow-hidden shadow-2xl w-full max-w-md mx-4 animate-[fadeIn_0.2s_ease-out]"
+                        className="relative my-4 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-red-500/30 bg-slate-900/95 shadow-2xl backdrop-blur-xl animate-[fadeIn_0.2s_ease-out]"
                         onClick={(e) => e.stopPropagation()}
                     >
                         {/* Header */}

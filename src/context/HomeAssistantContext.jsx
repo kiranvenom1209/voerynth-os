@@ -1,11 +1,24 @@
-import React, { createContext, useContext, useState, useRef, useCallback, useMemo, useEffect } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useContext, useState, useRef, useCallback, useMemo } from 'react';
 import HAConnection from '../services/HAConnection';
+import haClient from '../services/haClient';
 import * as storage from '../utils/storage';
+import { createHassEntityShape } from '../utils/hakitEntity';
+import estateEntities from '../config/estateEntities';
 
 const HomeAssistantContext = createContext(null);
 
-export const HomeAssistantProvider = ({ children, onConnectionChange, onSplashSequence }) => {
+const idleConnectionStage = {
+  id: 'idle',
+  message: 'Control Hub idle',
+  detail: 'Waiting for a connection request',
+  progress: 0,
+};
+
+export const HomeAssistantProvider = ({ children, onConnectionChange }) => {
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  const [connectionError, setConnectionError] = useState(null);
+  const [connectionStage, setConnectionStage] = useState(idleConnectionStage);
   const [hassStates, setHassStates] = useState({});
   const [systemRestarting, setSystemRestarting] = useState(false);
   const connectionRef = useRef(null);
@@ -13,21 +26,59 @@ export const HomeAssistantProvider = ({ children, onConnectionChange, onSplashSe
 
   // Connect to Control Hub
   const connect = useCallback(async (url, token, callbacks = {}) => {
+    manualDisconnectRef.current = false;
     setConnectionStatus('connecting');
+    setConnectionError(null);
+    setConnectionStage({
+      id: 'preparing',
+      message: 'Preparing Control Hub connection',
+      detail: 'Checking saved URL and access token',
+      progress: 14,
+    });
 
-    if (connectionRef.current) {
-      connectionRef.current.disconnect();
+    const normalizedUrl = url.replace(/\/$/, '');
+    const existingConnection = connectionRef.current;
+    if (
+      existingConnection &&
+      existingConnection.url === normalizedUrl &&
+      existingConnection.token === token &&
+      (existingConnection.connected || existingConnection.connecting)
+    ) {
+      setConnectionStage(existingConnection.connected ? {
+        id: 'ready',
+        message: 'Control Hub online',
+        detail: 'Existing websocket is already active',
+        progress: 100,
+      } : {
+        id: 'starting',
+        message: 'Control Hub connection already in progress',
+        detail: existingConnection.hassUrl,
+        progress: 22,
+      });
+      setConnectionStatus(existingConnection.connected ? 'connected' : 'connecting');
+      return;
     }
 
+    if (connectionRef.current) {
+      await connectionRef.current.disconnect();
+    }
+
+    let hasCompletedInitialConnect = false;
+
     connectionRef.current = new HAConnection(
-      url,
+      normalizedUrl,
       token,
       (newStates) => setHassStates(newStates),
       async () => {
+        const isInitialConnect = !hasCompletedInitialConnect;
+        hasCompletedInitialConnect = true;
         setConnectionStatus('connected');
+        setConnectionError(null);
         // Use persistent storage for Capacitor apps
-        await storage.setItem('voerynth_ha_url', url);
-        await storage.setItem('voerynth_ha_token', token);
+        if (isInitialConnect) {
+          await storage.setItem('voerynth_ha_url', normalizedUrl);
+          await storage.setItem('voerynth_ha_token', token);
+        }
 
         if (systemRestarting) {
           setSystemRestarting(false);
@@ -35,6 +86,7 @@ export const HomeAssistantProvider = ({ children, onConnectionChange, onSplashSe
 
         // Expose HAConnection globally for haClient
         window.__haConnection = connectionRef.current;
+        haClient.setHAConnection(connectionRef.current);
 
         // Notify parent about successful connection
         if (onConnectionChange) {
@@ -42,16 +94,24 @@ export const HomeAssistantProvider = ({ children, onConnectionChange, onSplashSe
         }
 
         // Trigger splash sequence callback
-        if (callbacks.onConnected) {
+        if (isInitialConnect && callbacks.onConnected) {
           callbacks.onConnected();
         }
       },
-      () => {
+      (error) => {
+        setConnectionError(error?.message || null);
+        setConnectionStage({
+          id: 'failed',
+          message: 'Control Hub connection failed',
+          detail: error?.message || 'Unable to reach the Control Hub',
+          progress: 100,
+        });
         setConnectionStatus('disconnected');
         if (onConnectionChange) {
           onConnectionChange('disconnected');
         }
-      }
+      },
+      (stage) => setConnectionStage(stage)
     );
 
     connectionRef.current.connect();
@@ -69,6 +129,8 @@ export const HomeAssistantProvider = ({ children, onConnectionChange, onSplashSe
     await storage.removeItem('voerynth_ha_url');
     await storage.removeItem('voerynth_ha_token');
     setHassStates({});
+    setConnectionError(null);
+    setConnectionStage(idleConnectionStage);
     setConnectionStatus('disconnected');
   }, []);
 
@@ -96,18 +158,16 @@ export const HomeAssistantProvider = ({ children, onConnectionChange, onSplashSe
     if (!hassStates || Object.keys(hassStates).length === 0) return false;
 
     // Check if it's dark outside (sun below horizon)
-    const sunEntity = hassStates['sun.sun'];
+    const sunEntity = hassStates[estateEntities.weather.sun];
     const isDarkOutside = sunEntity?.state === 'below_horizon';
 
     // Bedroom light entity IDs
-    const bedroomLights = [
-      'light.bedroom',
-      'light.bedroom_light',
-      'light.l_bedside_lamp'
-    ];
+    const bedroomRoom = estateEntities.lights.rooms.find((room) => room.name === 'Bedroom');
+    const bedroomLights = bedroomRoom?.lights.map((light) => light.id) || [];
 
     // Bathroom light entity ID
-    const bathroomLight = 'light.bathroom';
+    const sanctuaryRoom = estateEntities.lights.rooms.find((room) => room.name === 'Sanctuary');
+    const bathroomLight = sanctuaryRoom?.lights[0]?.id || 'light.bathroom';
 
     // Get all lights that are on
     const allLightsOn = Object.entries(hassStates).filter(([entityId, state]) => {
@@ -148,15 +208,37 @@ export const HomeAssistantProvider = ({ children, onConnectionChange, onSplashSe
     return { url, token };
   }, []);
 
+  const clearConnectionError = useCallback(() => {
+    setConnectionError(null);
+  }, []);
+
+  const retryConnection = useCallback(async () => {
+    const { url, token } = await getSavedCredentials();
+    if (!url || !token) {
+      throw new Error('Saved Control Hub credentials are missing');
+    }
+    return connect(url, token);
+  }, [connect, getSavedCredentials]);
+
   // Check if we should auto-connect
   const shouldAutoConnect = useCallback(async () => {
     const { url, token } = await getSavedCredentials();
     return url && token && !manualDisconnectRef.current;
   }, [getSavedCredentials]);
 
+  const isManualDisconnect = useCallback(() => manualDisconnectRef.current, []);
+
+  const setManualDisconnect = useCallback((value) => {
+    manualDisconnectRef.current = value;
+  }, []);
+
+  const getHAConnection = useCallback(() => connectionRef.current, []);
+
   const value = useMemo(() => ({
     // State
     connectionStatus,
+    connectionError,
+    connectionStage,
     hassStates,
     systemRestarting,
 
@@ -165,6 +247,8 @@ export const HomeAssistantProvider = ({ children, onConnectionChange, onSplashSe
     disconnect,
     callService,
     setSystemRestarting,
+    clearConnectionError,
+    retryConnection,
 
     // Helpers
     areAnyLightsOn,
@@ -173,20 +257,27 @@ export const HomeAssistantProvider = ({ children, onConnectionChange, onSplashSe
     shouldAutoConnect,
 
     // Refs (for advanced usage)
-    isManualDisconnect: () => manualDisconnectRef.current,
-    setManualDisconnect: (value) => { manualDisconnectRef.current = value; },
-    getHAConnection: () => connectionRef.current
+    isManualDisconnect,
+    setManualDisconnect,
+    getHAConnection
   }), [
     connectionStatus,
+    connectionError,
+    connectionStage,
     hassStates,
     systemRestarting,
     connect,
     disconnect,
     callService,
+    clearConnectionError,
+    retryConnection,
     areAnyLightsOn,
     areOnlyBedroomBathroomLightsOn,
     getSavedCredentials,
-    shouldAutoConnect
+    shouldAutoConnect,
+    isManualDisconnect,
+    setManualDisconnect,
+    getHAConnection
   ]);
 
   return (
@@ -208,25 +299,7 @@ export const useHomeAssistant = () => {
 // Convenience hook for getting entity state
 export const useHassEntity = (entityId, mockData = {}) => {
   const { hassStates } = useHomeAssistant();
-  
-  const entity = hassStates[entityId];
-  if (entity) {
-    return {
-      state: entity.state,
-      attributes: entity.attributes || {},
-      entity_picture: entity.attributes?.entity_picture,
-      isUnavailable: entity.state === 'unavailable' || entity.state === 'unknown',
-      lastUpdated: new Date(entity.last_updated)
-    };
-  }
-  
-  return {
-    ...mockData,
-    attributes: mockData.attributes || {},
-    isUnavailable: true,
-    isMock: true
-  };
+  return createHassEntityShape(entityId, hassStates[entityId], mockData);
 };
 
 export default HomeAssistantContext;
-

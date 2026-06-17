@@ -1,157 +1,249 @@
+import {
+    callService as wsCallService,
+    createConnection,
+    createLongLivedTokenAuth,
+    subscribeEntities
+} from 'home-assistant-js-websocket';
+
 /**
- * --- HA FUSION-INSPIRED WEBSOCKET CLIENT ---
+ * Home Assistant websocket facade.
+ *
+ * Keeps the app's existing connection API while delegating auth, reconnects,
+ * request/response handling, and entity subscriptions to the official client.
  */
 class HAConnection {
-    constructor(url, token, onStateChange, onConnect, onDisconnect) {
+    constructor(url, token, onStateChange, onConnect, onDisconnect, onStage = () => { }) {
         this.url = url.replace(/\/$/, '');
+        this.hassUrl = this.url;
         this.token = token;
-        this.socket = null;
-        this.id = 1;
+        this.accessToken = token;
+        this.auth = null;
+        this.connection = null;
+        this.unsubscribeEntities = null;
         this.onStateChange = onStateChange;
         this.onConnect = onConnect;
         this.onDisconnect = onDisconnect;
+        this.onStage = onStage;
         this.states = {};
         this.connected = false;
-        this.reconnectTimer = null;
-        this.pendingRequests = {}; // Track pending requests for promise resolution
-        this.pendingRequestTypes = {}; // Track types of pending requests to parse results correctly
+        this.manualDisconnect = false;
+        this.connecting = false;
+        this.disconnectTimer = null;
+        this.initialSnapshotReceived = false;
+
+        this.handleReady = this.handleReady.bind(this);
+        this.handleDisconnected = this.handleDisconnected.bind(this);
+        this.handleReconnectError = this.handleReconnectError.bind(this);
     }
 
     connect() {
-        let wsUrl = this.url;
-        if (wsUrl.startsWith('https')) {
-            wsUrl = wsUrl.replace(/^https/, 'wss');
-        } else {
-            wsUrl = wsUrl.replace(/^http/, 'ws');
-        }
-        wsUrl = `${wsUrl}/api/websocket`;
+        if (this.connecting || this.connected) return;
 
-        try {
-            this.socket = new WebSocket(wsUrl);
-            this.socket.onopen = () => console.log('WS: Opening connection...');
-            this.socket.onmessage = this.handleMessage.bind(this);
-            this.socket.onclose = this.handleClose.bind(this);
-            this.socket.onerror = (e) => console.error('WS Error:', e);
-        } catch (e) {
-            console.error("Connection failed", e);
-            this.handleClose();
-        }
+        this.manualDisconnect = false;
+        this.connecting = true;
+        this.setStage({
+            id: 'starting',
+            message: 'Starting Control Hub connection',
+            detail: this.hassUrl,
+            progress: 22
+        });
+        this.openConnection().catch((error) => {
+            this.connecting = false;
+            this.connected = false;
+            console.error('HA websocket connection failed:', error);
+            this.setStage({
+                id: 'failed',
+                message: 'Control Hub connection failed',
+                detail: error?.message || 'Unable to reach the Control Hub',
+                progress: 100
+            });
+            this.onDisconnect(error);
+        });
     }
 
-    handleMessage(event) {
-        const msg = JSON.parse(event.data);
+    async openConnection() {
+        this.setStage({
+            id: 'authenticating',
+            message: 'Preparing token authentication',
+            detail: 'Long-lived access token',
+            progress: 32
+        });
+        this.auth = createLongLivedTokenAuth(this.url, this.token);
+        this.setStage({
+            id: 'opening_socket',
+            message: 'Opening Home Assistant websocket',
+            detail: this.hassUrl,
+            progress: 48
+        });
+        this.connection = await createConnection({
+            auth: this.auth,
+            setupRetry: 3
+        });
 
-        if (msg.type === 'auth_required') {
-            this.send({ type: 'auth', access_token: this.token });
-        } else if (msg.type === 'auth_ok') {
-            this.connected = true;
-            this.onConnect();
-            this.send({ type: 'subscribe_events', event_type: 'state_changed' });
-            this.send({ type: 'get_states' });
-        } else if (msg.type === 'auth_invalid') {
-            console.error("Auth Invalid");
-            this.disconnect();
-        } else if (msg.type === 'result') {
-            // Get the original request type before deleting it
-            const requestType = msg.id ? this.pendingRequestTypes[msg.id] : null;
+        this.setStage({
+            id: 'socket_ready',
+            message: 'Websocket connected',
+            detail: 'Registering connection listeners',
+            progress: 62
+        });
+        this.connection.addEventListener('ready', this.handleReady);
+        this.connection.addEventListener('disconnected', this.handleDisconnected);
+        this.connection.addEventListener('reconnect-error', this.handleReconnectError);
 
-            // Handle pending promise resolution
-            if (msg.id && this.pendingRequests[msg.id]) {
-                const { resolve, reject } = this.pendingRequests[msg.id];
-                if (msg.success) {
-                    resolve(msg.result);
-                } else {
-                    reject(new Error(msg.error?.message || 'Service call failed'));
-                }
-                delete this.pendingRequests[msg.id];
-            }
+        this.setStage({
+            id: 'subscribing_entities',
+            message: 'Subscribing to entity state stream',
+            detail: 'Waiting for the first dashboard snapshot',
+            progress: 76
+        });
 
-            // Clean up request type tracker
-            if (msg.id) {
-                delete this.pendingRequestTypes[msg.id];
-            }
+        let resolveInitialSnapshot;
+        const initialSnapshot = new Promise((resolve) => {
+            resolveInitialSnapshot = resolve;
+        });
+        let initialSnapshotTimeout;
 
-            // ONLY handle state updates if this was explicitly a get_states request
-            // BUGFIX: Previously, this parsed ANY array response (like Area/Device Registry) as states!
-            if (msg.success && msg.result && Array.isArray(msg.result) && requestType === 'get_states') {
-                msg.result.forEach(state => {
-                    this.states[state.entity_id] = state;
-                });
-                this.onStateChange({ ...this.states });
-            }
-        } else if (msg.type === 'event' && msg.event.event_type === 'state_changed') {
-            const { entity_id, new_state } = msg.event.data;
-            this.states[entity_id] = new_state;
+        this.unsubscribeEntities = subscribeEntities(this.connection, (states) => {
+            this.states = states || {};
             this.onStateChange({ ...this.states });
+            if (!this.initialSnapshotReceived) {
+                this.initialSnapshotReceived = true;
+                const entityCount = Object.keys(this.states).length;
+                this.setStage({
+                    id: 'entities_synced',
+                    message: 'Received entity state snapshot',
+                    detail: `${entityCount} entities synced`,
+                    progress: 92
+                });
+                resolveInitialSnapshot(entityCount);
+            }
+        });
+
+        await Promise.race([
+            initialSnapshot,
+            new Promise((resolve) => {
+                initialSnapshotTimeout = setTimeout(() => {
+                    if (!this.initialSnapshotReceived) {
+                        this.setStage({
+                            id: 'entity_stream_pending',
+                            message: 'Entity stream is still warming up',
+                            detail: 'Opening the dashboard while states continue syncing',
+                            progress: 88
+                        });
+                    }
+                    resolve();
+                }, 3000);
+            })
+        ]);
+        if (initialSnapshotTimeout) {
+            clearTimeout(initialSnapshotTimeout);
+        }
+
+        this.connecting = false;
+        this.handleReady();
+    }
+
+    handleReady() {
+        if (this.disconnectTimer) {
+            clearTimeout(this.disconnectTimer);
+            this.disconnectTimer = null;
+        }
+        this.connected = true;
+        this.setStage({
+            id: 'ready',
+            message: 'Control Hub online',
+            detail: this.initialSnapshotReceived
+                ? `${Object.keys(this.states).length} entities available`
+                : 'Entity stream continues in the background',
+            progress: 100
+        });
+        this.onConnect();
+    }
+
+    handleDisconnected() {
+        this.connected = false;
+        if (!this.manualDisconnect) {
+            this.setStage({
+                id: 'reconnecting',
+                message: 'Websocket interrupted',
+                detail: 'Waiting for Home Assistant to reconnect',
+                progress: 65
+            });
+            if (this.disconnectTimer) {
+                clearTimeout(this.disconnectTimer);
+            }
+            this.disconnectTimer = setTimeout(() => {
+                this.disconnectTimer = null;
+                if (!this.manualDisconnect && !this.connected) {
+                    this.onDisconnect();
+                }
+            }, 4000);
         }
     }
 
-    send(data) {
-        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            if (data.type !== 'auth') {
-                data.id = this.id++;
-                this.pendingRequestTypes[data.id] = data.type; // Keep track of request type
-            }
-            this.socket.send(JSON.stringify(data));
-            return data.id; // Return the message ID for tracking
-        }
-        return null;
+    handleReconnectError(_connection, error) {
+        console.error('HA websocket reconnect failed:', error);
+        this.setStage({
+            id: 'reconnect_error',
+            message: 'Reconnect attempt failed',
+            detail: error?.message || 'Home Assistant websocket retry failed',
+            progress: 70
+        });
+    }
+
+    setStage(stage) {
+        this.onStage(stage);
     }
 
     /**
-     * Send a message and wait for response (Promise-based)
-     * Used for registry queries and other request/response patterns
+     * Send a request/response websocket command.
+     * Used for registry queries and other Home Assistant websocket commands.
      */
     sendMessage(data) {
-        return new Promise((resolve, reject) => {
-            if (!this.connected) {
-                reject(new Error('Not connected to Home Assistant'));
-                return;
-            }
+        if (!this.connection || !this.connected) {
+            return Promise.reject(new Error('Not connected to Home Assistant'));
+        }
 
-            const messageId = this.send(data);
-
-            if (messageId) {
-                // Store the promise callbacks for this request
-                this.pendingRequests[messageId] = { resolve, reject };
-
-                // Set a timeout to reject if no response after 30 seconds
-                setTimeout(() => {
-                    if (this.pendingRequests[messageId]) {
-                        delete this.pendingRequests[messageId];
-                        reject(new Error('Request timeout'));
-                    }
-                }, 30000);
-            } else {
-                reject(new Error('Failed to send message'));
-            }
-        });
+        return this.connection.sendMessagePromise(data);
     }
 
-    callService(domain, service, serviceData = {}) {
-        return this.sendMessage({
-            type: 'call_service',
-            domain,
-            service,
-            service_data: serviceData
-        });
+    callService(domain, service, serviceData = {}, target = {}) {
+        if (!this.connection || !this.connected) {
+            return Promise.reject(new Error('Not connected to Home Assistant'));
+        }
+
+        return wsCallService(this.connection, domain, service, serviceData, target);
     }
 
-    handleClose() {
+    async disconnect() {
+        this.manualDisconnect = true;
+        this.connecting = false;
+        this.setStage({
+            id: 'disconnecting',
+            message: 'Disconnecting from Control Hub',
+            detail: 'Closing websocket and entity subscriptions',
+            progress: 95
+        });
+
+        if (this.disconnectTimer) {
+            clearTimeout(this.disconnectTimer);
+            this.disconnectTimer = null;
+        }
+
+        if (this.unsubscribeEntities) {
+            await this.unsubscribeEntities();
+            this.unsubscribeEntities = null;
+        }
+
+        if (this.connection) {
+            this.connection.removeEventListener('ready', this.handleReady);
+            this.connection.removeEventListener('disconnected', this.handleDisconnected);
+            this.connection.removeEventListener('reconnect-error', this.handleReconnectError);
+            this.connection.close();
+            this.connection = null;
+        }
+
         this.connected = false;
-        this.onDisconnect();
-        if (!this.reconnectTimer) {
-            this.reconnectTimer = setTimeout(() => {
-                this.reconnectTimer = null;
-                this.connect();
-            }, 5000);
-        }
-    }
-
-    disconnect() {
-        if (this.socket) {
-            this.socket.close();
-        }
     }
 }
 

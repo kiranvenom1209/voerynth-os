@@ -1,4 +1,5 @@
 import * as storage from './storage';
+import { getCssColorValue } from '@hakit/core';
 
 /**
  * --- HELPER: Get Camera Stream URL (SNAPSHOT MODE) ---
@@ -17,8 +18,25 @@ export const getSnapshotUrl = async (entityId, hassStates) => {
  * --- HELPER: Color Utilities ---
  */
 export const getEntityColor = (attributes) => {
-    if (attributes.rgb_color) {
-        return `rgb(${attributes.rgb_color.join(',')})`;
+    const stateObject = attributes?.attributes
+        ? attributes
+        : {
+            entity_id: 'light.preview',
+            state: 'on',
+            attributes: attributes || {}
+        };
+
+    try {
+        const { hexColor } = getCssColorValue(stateObject);
+        if (hexColor && hexColor.startsWith('#')) {
+            return hexColor;
+        }
+    } catch {
+        // Fall back to the previous behavior for partial or non-HA-shaped data.
+    }
+
+    if (stateObject.attributes.rgb_color) {
+        return `rgb(${stateObject.attributes.rgb_color.join(',')})`;
     }
     return '#F59E0B'; // Default Amber
 };

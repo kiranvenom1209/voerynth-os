@@ -2,21 +2,20 @@ import React from 'react';
 import { Cpu, HardDrive, Wifi, Zap, Leaf } from 'lucide-react';
 import Card from '../components/Card';
 import { useHassEntity } from '../context/HomeAssistantContext';
+import estateEntities from '../config/estateEntities';
 
 const NetworkView = ({ editMode = false, onCardEdit = null }) => {
-    const cpu = useHassEntity('sensor.system_monitor_processor_use', { state: 12 });
-    const mem = useHassEntity('sensor.system_monitor_memory_usage', { state: 45 });
-    const temp = useHassEntity('sensor.system_monitor_processor_temperature', { state: 42 });
+    const networkConfig = estateEntities.network;
+    const cpu = useHassEntity(networkConfig.cpu, { state: 12 });
+    const mem = useHassEntity(networkConfig.memory, { state: 45 });
 
     // Speedtest
-    const down = useHassEntity('sensor.speedtest_download', { state: 0 });
-    const up = useHassEntity('sensor.speedtest_upload', { state: 0 });
-    const ping = useHassEntity('sensor.speedtest_ping', { state: 0 });
+    const down = useHassEntity(networkConfig.download, { state: 0 });
 
     // Energy
-    const powerIn = useHassEntity('sensor.electricity_monitor_ace3000_total_inz1', { state: 0 });
-    const powerOut = useHassEntity('sensor.electricity_monitor_ace3000_total_exz1', { state: 0 });
-    const co2 = useHassEntity('sensor.electricity_maps_co2_intensity', { state: 0 });
+    const powerIn = useHassEntity(networkConfig.gridImport, { state: 0 });
+    const powerOut = useHassEntity(networkConfig.gridExport, { state: 0 });
+    const co2 = useHassEntity(networkConfig.co2Intensity, { state: 0 });
 
     return (
         <div className="space-y-6 animate-[fadeIn_0.8s_ease-out]">

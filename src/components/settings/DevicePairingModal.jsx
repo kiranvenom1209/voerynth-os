@@ -4,7 +4,7 @@
  * Handles device pairing for Matter, Zigbee (ZHA), and other protocols.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, Loader, CheckCircle, Wifi } from 'lucide-react';
 import { useAccentColor } from '../../context/AccentColorContext';
 import haClient from '../../services/haClient';
@@ -15,23 +15,34 @@ const DevicePairingModal = ({ isOpen, onClose, protocol, onSuccess }) => {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState(null);
   const [countdown, setCountdown] = useState(0);
+  const intervalRef = useRef(null);
+
+  const clearCountdown = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  useEffect(() => () => clearCountdown(), []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      clearCountdown();
+      setPairing(false);
+      setSuccess(false);
+      setError(null);
+      setCountdown(0);
+    }
+  }, [isOpen]);
 
   const startPairing = async () => {
     try {
+      clearCountdown();
       setPairing(true);
+      setSuccess(false);
       setError(null);
-      setCountdown(60); // 60 second pairing window
-
-      // Start countdown
-      const interval = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      setCountdown(60);
 
       // Call appropriate pairing service based on protocol
       switch (protocol) {
@@ -53,20 +64,25 @@ const DevicePairingModal = ({ isOpen, onClose, protocol, onSuccess }) => {
           throw new Error(`Unknown protocol: ${protocol}`);
       }
 
-      // Wait for pairing to complete or timeout
-      setTimeout(() => {
-        clearInterval(interval);
-        setSuccess(true);
-        setPairing(false);
-        setTimeout(() => {
-          onSuccess?.();
-          onClose();
-        }, 2000);
-      }, 3000); // Simulate pairing success after 3 seconds
+      setSuccess(true);
+      setPairing(false);
+      onSuccess?.();
+
+      intervalRef.current = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearCountdown();
+            setSuccess(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
 
     } catch (err) {
       setError(err.message);
       setPairing(false);
+      clearCountdown();
     }
   };
 
@@ -97,8 +113,8 @@ const DevicePairingModal = ({ isOpen, onClose, protocol, onSuccess }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full mx-4">
+    <div className="fixed inset-0 z-[9999] flex items-start justify-center overflow-y-auto bg-black/70 p-4 backdrop-blur-sm sm:items-center">
+      <div className="my-4 max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-800">
           <div>
@@ -116,12 +132,23 @@ const DevicePairingModal = ({ isOpen, onClose, protocol, onSuccess }) => {
         {/* Content */}
         <div className="p-6">
           {success ? (
-            <div className="flex flex-col items-center justify-center py-8">
+            <div className="flex flex-col items-center justify-center py-8 space-y-3">
               <CheckCircle className="w-16 h-16 text-green-500 mb-4" />
-              <h3 className="text-xl font-semibold text-slate-200 mb-2">Device Paired!</h3>
-              <p className="text-slate-400 text-center">
-                Your device has been successfully added
+              <h3 className="text-xl font-semibold text-slate-200">Pairing Mode Active</h3>
+              <p className="text-slate-400 text-center max-w-sm">
+                Home Assistant accepted the pairing command. New devices will appear when they finish joining.
               </p>
+              {countdown > 0 && (
+                <div className={`text-2xl font-bold ${colors.text}`}>
+                  {countdown}s
+                </div>
+              )}
+              <button
+                onClick={onClose}
+                className="mt-2 px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors"
+              >
+                Close
+              </button>
             </div>
           ) : error ? (
             <div className="space-y-4">
@@ -130,7 +157,8 @@ const DevicePairingModal = ({ isOpen, onClose, protocol, onSuccess }) => {
               </div>
               <button
                 onClick={startPairing}
-                className={`w-full px-6 py-3 bg-${colors.name}-600 text-white rounded-lg hover:bg-${colors.name}-700 transition-colors font-semibold`}
+                className="w-full px-6 py-3 text-white rounded-lg transition-colors font-semibold"
+                style={{ backgroundColor: colors.accent }}
               >
                 Try Again
               </button>
@@ -141,7 +169,7 @@ const DevicePairingModal = ({ isOpen, onClose, protocol, onSuccess }) => {
                 <Wifi className="w-16 h-16 text-cyan-500 animate-pulse" />
                 <Loader className="w-8 h-8 text-cyan-400 animate-spin absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
               </div>
-              <h3 className="text-xl font-semibold text-slate-200">Searching for devices...</h3>
+              <h3 className="text-xl font-semibold text-slate-200">Starting pairing mode...</h3>
               <p className="text-slate-400 text-center">{getInstructions()}</p>
               {countdown > 0 && (
                 <div className={`text-2xl font-bold ${colors.text}`}>
@@ -156,7 +184,8 @@ const DevicePairingModal = ({ isOpen, onClose, protocol, onSuccess }) => {
               </div>
               <button
                 onClick={startPairing}
-                className={`w-full px-6 py-3 bg-${colors.name}-600 text-white rounded-lg hover:bg-${colors.name}-700 transition-colors font-semibold`}
+                className="w-full px-6 py-3 text-white rounded-lg transition-colors font-semibold"
+                style={{ backgroundColor: colors.accent }}
               >
                 Start Pairing
               </button>
@@ -169,4 +198,3 @@ const DevicePairingModal = ({ isOpen, onClose, protocol, onSuccess }) => {
 };
 
 export default DevicePairingModal;
-

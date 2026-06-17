@@ -183,7 +183,7 @@ const DevicesView = () => {
 /**
  * Devices Tab
  */
-const DevicesTab = ({ devices, searchQuery, areas, colors }) => {
+const DevicesTab = ({ devices, searchQuery, areas }) => {
   const filtered = devices.filter(device =>
     device.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     device.manufacturer?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -239,7 +239,7 @@ const DevicesTab = ({ devices, searchQuery, areas, colors }) => {
 /**
  * Entities Tab
  */
-const EntitiesTab = ({ entities, searchQuery, devices, areas, colors }) => {
+const EntitiesTab = ({ entities, searchQuery, devices }) => {
   const filtered = entities.filter(entity =>
     entity.entity_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
     entity.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -298,7 +298,7 @@ const EntitiesTab = ({ entities, searchQuery, devices, areas, colors }) => {
 /**
  * Areas Tab
  */
-const AreasTab = ({ areas, searchQuery, devices, entities, colors }) => {
+const AreasTab = ({ areas, searchQuery, devices, entities }) => {
   const filtered = areas.filter(area =>
     area.name?.toLowerCase().includes(searchQuery.toLowerCase())
   );

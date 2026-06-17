@@ -1,71 +1,145 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { useHomeAssistant } from '../context/HomeAssistantContext';
+import haClient from '../services/haClient';
+
+const MAX_LOGS = 200;
+
+const formatTime = (value = new Date()) => new Date(value).toLocaleTimeString('en-US', { hour12: false });
+
+const normalizeSystemLogEvent = (message) => {
+    const event = message?.event || message;
+    const data = event?.data || {};
+
+    return {
+        time: formatTime(event?.time_fired || data.timestamp),
+        level: (data.level || data.levelname || 'INFO').toUpperCase(),
+        source: data.name || data.source || data.logger || 'system',
+        message: data.message || data.exception || JSON.stringify(data)
+    };
+};
 
 const SystemLogsContent = ({ hassStates, debugMode }) => {
     const [logs, setLogs] = useState([]);
     const logsEndRef = useRef(null);
     const [autoScroll, setAutoScroll] = useState(true);
+    const { connectionStatus, getHAConnection } = useHomeAssistant();
+    const getHAConnectionRef = useRef(getHAConnection);
+    const previousStatesRef = useRef(null);
+    const nextLogIdRef = useRef(1);
 
     useEffect(() => {
-        // Simulate log entries from various HA entities and system events
-        const generateLogs = () => {
-            const newLogs = [];
-            const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+        getHAConnectionRef.current = getHAConnection;
+    }, [getHAConnection]);
 
-            // Add connection status
-            newLogs.push({
-                time: timestamp,
-                level: 'INFO',
-                source: 'core',
-                message: 'WebSocket connection established'
-            });
-
-            // Add entity state changes
-            Object.entries(hassStates).forEach(([entityId, entity]) => {
-                if (entity.last_changed) {
-                    const lastChanged = new Date(entity.last_changed);
-                    const timeDiff = Date.now() - lastChanged.getTime();
-
-                    // Only show recent changes (last 5 minutes)
-                    if (timeDiff < 300000) {
-                        newLogs.push({
-                            time: lastChanged.toLocaleTimeString('en-US', { hour12: false }),
-                            level: 'DEBUG',
-                            source: entityId.split('.')[0],
-                            message: `${entityId} changed to ${entity.state}`
-                        });
-                    }
-                }
-            });
-
-            // Add some system messages
-            if (debugMode) {
-                newLogs.push({
-                    time: timestamp,
-                    level: 'DEBUG',
-                    source: 'frontend',
-                    message: `Debug mode enabled - ${Object.keys(hassStates).length} entities loaded`
-                });
+    const appendLog = useCallback((entry) => {
+        setLogs((currentLogs) => [
+            ...currentLogs,
+            {
+                id: nextLogIdRef.current++,
+                time: entry.time || formatTime(),
+                level: entry.level || 'INFO',
+                source: entry.source || 'frontend',
+                message: entry.message || ''
             }
+        ].slice(-MAX_LOGS));
+    }, []);
 
-            // Sort by time and limit to last 100 entries
-            return newLogs.slice(-100);
+    useEffect(() => {
+        if (connectionStatus !== 'connected') {
+            appendLog({
+                level: 'WARN',
+                source: 'frontend',
+                message: 'Waiting for Home Assistant connection'
+            });
+            return undefined;
+        }
+
+        let cancelled = false;
+        let unsubscribeSystemLogs = null;
+
+        const subscribeToSystemLogs = async () => {
+            const haConnection = getHAConnectionRef.current?.();
+            if (!haConnection?.connected) return;
+
+            haClient.setHAConnection(haConnection);
+
+            try {
+                unsubscribeSystemLogs = await haClient.subscribeWS(
+                    'subscribe_events',
+                    { event_type: 'system_log_event' },
+                    (message) => {
+                        if (!cancelled) {
+                            appendLog(normalizeSystemLogEvent(message));
+                        }
+                    }
+                );
+
+                if (!cancelled) {
+                    appendLog({
+                        level: 'INFO',
+                        source: 'core',
+                        message: 'Subscribed to Home Assistant system log events'
+                    });
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    appendLog({
+                        level: 'WARN',
+                        source: 'system_log',
+                        message: err.message || 'System log event stream is unavailable'
+                    });
+                }
+            }
         };
 
-        setLogs(generateLogs());
+        subscribeToSystemLogs();
 
-        // Update logs every 2 seconds
-        const interval = setInterval(() => {
-            setLogs(generateLogs());
-        }, 2000);
+        return () => {
+            cancelled = true;
+            if (typeof unsubscribeSystemLogs === 'function') {
+                unsubscribeSystemLogs();
+            }
+        };
+    }, [appendLog, connectionStatus]);
 
-        return () => clearInterval(interval);
-    }, [hassStates, debugMode]);
+    useEffect(() => {
+        const entries = Object.entries(hassStates || {});
+        const previousStates = previousStatesRef.current;
 
-    // Check if user is scrolled to bottom
+        if (!previousStates) {
+            previousStatesRef.current = new Map(entries.map(([entityId, entity]) => [entityId, entity?.state]));
+
+            if (entries.length > 0) {
+                appendLog({
+                    level: 'INFO',
+                    source: 'frontend',
+                    message: `Tracking ${entries.length} Home Assistant entities`
+                });
+            }
+            return;
+        }
+
+        if (debugMode) {
+            entries.forEach(([entityId, entity]) => {
+                const previousState = previousStates.get(entityId);
+                if (previousState !== undefined && previousState !== entity?.state) {
+                    appendLog({
+                        time: formatTime(entity?.last_changed || entity?.last_updated),
+                        level: 'DEBUG',
+                        source: entityId.split('.')[0],
+                        message: `${entityId} changed from ${previousState} to ${entity?.state}`
+                    });
+                }
+            });
+        }
+
+        previousStatesRef.current = new Map(entries.map(([entityId, entity]) => [entityId, entity?.state]));
+    }, [appendLog, debugMode, hassStates]);
+
     useEffect(() => {
         const container = document.getElementById('system-logs-container');
-        if (!container) return;
+        if (!container) return undefined;
 
         const handleScroll = () => {
             const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
@@ -76,7 +150,6 @@ const SystemLogsContent = ({ hassStates, debugMode }) => {
         return () => container.removeEventListener('scroll', handleScroll);
     }, []);
 
-    // Auto-scroll to bottom only if user hasn't scrolled up
     useEffect(() => {
         if (autoScroll) {
             const container = document.getElementById('system-logs-container');
@@ -89,6 +162,7 @@ const SystemLogsContent = ({ hassStates, debugMode }) => {
     const getLevelColor = (level) => {
         switch (level) {
             case 'ERROR': return 'text-red-400';
+            case 'WARNING':
             case 'WARN': return 'text-amber-400';
             case 'INFO': return 'text-blue-400';
             case 'DEBUG': return 'text-slate-500';
@@ -109,11 +183,11 @@ const SystemLogsContent = ({ hassStates, debugMode }) => {
 
     return (
         <div className="space-y-1">
-            {logs.map((log, idx) => (
-                <div key={idx} className="flex gap-3 hover:bg-slate-800/30 px-2 py-1 rounded transition-colors">
+            {logs.map((log) => (
+                <div key={log.id} className="flex gap-3 hover:bg-slate-800/30 px-2 py-1 rounded transition-colors">
                     <span className="text-slate-600 shrink-0">{log.time}</span>
-                    <span className={`${getLevelColor(log.level)}  shrink-0 w-12`}>{log.level}</span>
-                    <span className="text-amber-500/60 shrink-0 w-20 truncate">[{log.source}]</span>
+                    <span className={`${getLevelColor(log.level)} shrink-0 w-16`}>{log.level}</span>
+                    <span className="text-amber-500/60 shrink-0 w-24 truncate">[{log.source}]</span>
                     <span className="text-slate-300 break-all">{log.message}</span>
                 </div>
             ))}

@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { Smartphone, Edit, Power, MapPin } from 'lucide-react';
-import { useAccentColor } from '../../../context/AccentColorContext';
 import { useSettingsNav } from '../../SettingsView';
 import useHAStore from '../../../stores/haStore';
 
@@ -22,7 +21,6 @@ const sanitizeDeviceName = (name) => {
  * Shows all devices with navigation to device detail pages
  */
 const DevicesTab = () => {
-  const { colors } = useAccentColor();
   const { navigate } = useSettingsNav();
 
   const { devices, areasById, entityRegistry, loading } = useHAStore();
@@ -114,4 +112,3 @@ const DevicesTab = () => {
 };
 
 export default DevicesTab;
-

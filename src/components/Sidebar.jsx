@@ -3,6 +3,7 @@ import { LayoutDashboard, Lightbulb, Tv, ShieldCheck, Zap, Download, Activity, H
 import SidebarItem from './SidebarItem';
 import CompanyLogo from './CompanyLogo';
 import { useAccentColor } from '../context/AccentColorContext';
+import { APP_BRAND, APP_VERSION_LABEL } from '../config/app';
 
 const Sidebar = ({
     activeTab,
@@ -86,8 +87,8 @@ const Sidebar = ({
                     <CompanyLogo className={`w-8 h-8 mb-2 transition-all duration-300 ${
                         editMode ? `${colors.text} animate-pulse` : colors.text
                     }`} />
-                    <h1 className="font-serif text-lg text-slate-100 tracking-[0.2em] leading-none">VŒRYNTH</h1>
-                    <p className={`text-[0.5rem] ${colors.text}/80 uppercase tracking-[0.4em] mt-1`}>Système OS v5.0.1</p>
+                    <h1 className="font-serif text-lg text-slate-100 tracking-[0.2em] leading-none">{APP_BRAND}</h1>
+                    <p className={`text-[0.5rem] ${colors.text}/80 uppercase tracking-[0.4em] mt-1`}>{APP_VERSION_LABEL}</p>
                 </div>
             </div>
 

@@ -1,16 +1,17 @@
 import React from 'react';
 import { Mic } from 'lucide-react';
 import Card from '../Card';
-import { useHomeAssistant, useHassEntity } from '../../context/HomeAssistantContext';
+import { useHassEntity } from '../../context/HomeAssistantContext';
 import { useAccentColor } from '../../context/AccentColorContext';
+import estateEntities from '../../config/estateEntities';
 
 const NeuralInterfaceCard = ({ delay = 100, editMode = false, onEditClick = null, cardId = null }) => {
-  const { hassStates } = useHomeAssistant();
   const { colors } = useAccentColor();
+  const voiceConfig = estateEntities.dashboard.voice;
   
-  const assistSwitch = useHassEntity('input_boolean.assist_switch', { state: 'off' });
-  const ammuIntelligent = useHassEntity('input_boolean.ammu_intelligent', { state: 'off' });
-  const satellite = useHassEntity('assist_satellite.home_assistant_voice_09af65_assist_satellite', { state: 'idle' });
+  const assistSwitch = useHassEntity(voiceConfig.assistSwitch, { state: 'off' });
+  const ammuIntelligent = useHassEntity(voiceConfig.intelligentMode, { state: 'off' });
+  const satellite = useHassEntity(voiceConfig.satellite, { state: 'idle' });
 
   let brainState = 'Idle';
   let brainColor = 'text-emerald-500 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.1)]';
@@ -81,4 +82,3 @@ const NeuralInterfaceCard = ({ delay = 100, editMode = false, onEditClick = null
 };
 
 export default NeuralInterfaceCard;
-

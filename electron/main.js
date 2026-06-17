@@ -1,31 +1,28 @@
-const { app, BrowserWindow } = require('electron');
-const path = require('path');
-const isDev = !app.isPackaged; // Check if running in dev mode
+import { app, BrowserWindow } from 'electron';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-function createWindow() {
-  // Create the browser window.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const isDev = !app.isPackaged;
+
+const createWindow = () => {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    autoHideMenuBar: true,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false, // For simple setups; use preload scripts for security in production
+      nodeIntegration: false,
+      contextIsolation: true,
     },
-    // Hide the menu bar (optional, for kiosk feel)
-    autoHideMenuBar: true, 
   });
 
-  // Load the app
   if (isDev) {
-    // In dev mode, load from the Vite dev server
     win.loadURL('http://localhost:5173');
-    // Open DevTools
-    win.webContents.openDevTools();
+    win.webContents.openDevTools({ mode: 'detach' });
   } else {
-    // In production, load the built index.html
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   }
-}
+};
 
 app.whenReady().then(createWindow);
 
@@ -40,3 +37,4 @@ app.on('activate', () => {
     createWindow();
   }
 });
+

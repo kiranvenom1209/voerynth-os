@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { ArrowLeft, Server, HardDrive, Cpu, Activity, Database, Network, Shield, RefreshCw, Download, Upload } from 'lucide-react';
 import { useSettingsNav } from '../SettingsView';
-import { useAccentColor } from '../../context/AccentColorContext';
 import useHAStore from '../../stores/haStore';
 
 /**
@@ -10,8 +9,8 @@ import useHAStore from '../../stores/haStore';
  */
 const SystemView = () => {
   const { navigate } = useSettingsNav();
-  const { colors } = useAccentColor();
   const { hassStates } = useHAStore();
+  const [currentTime] = React.useState(() => Date.now());
 
   // Get system info from sensor entities
   const systemInfo = useMemo(() => {
@@ -48,7 +47,7 @@ const SystemView = () => {
     if (bootSensor) {
       const dateVal = Date.parse(bootSensor.state);
       if (!isNaN(dateVal) && dateVal > 100000) {
-        const diffMs = Date.now() - dateVal;
+        const diffMs = currentTime - dateVal;
         const d = Math.floor(diffMs / 86400000);
         const h = Math.floor((diffMs % 86400000) / 3600000);
         info.uptime = d > 0 ? `${d} days, ${h} hours` : `${h} hours`;
@@ -85,7 +84,7 @@ const SystemView = () => {
     info.status = 'Healthy';
 
     return info;
-  }, [hassStates]);
+  }, [hassStates, currentTime]);
 
   const systemSections = [
     {

@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Power, Mic, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Grid, Tv } from 'lucide-react';
 import Card from '../components/Card';
 import { useHomeAssistant, useHassEntity } from '../context/HomeAssistantContext';
 import BrandIcon from '../components/BrandIcon';
+import estateEntities from '../config/estateEntities';
+import useOptimisticValue from '../hooks/useOptimisticValue';
 
 const formatMediaTime = (seconds) => {
     if (!seconds || isNaN(seconds) || seconds <= 0) return '0:00';
@@ -13,7 +15,9 @@ const formatMediaTime = (seconds) => {
 
 const MediaView = ({ editMode = false, onCardEdit = null }) => {
     const { callService } = useHomeAssistant();
-    const media = useHassEntity('media_player.android_tv_192_168_2_88', {
+    const mediaConfig = estateEntities.media;
+    const powerSwitch = useHassEntity(mediaConfig.powerSwitch, { state: 'off' });
+    const media = useHassEntity(mediaConfig.player, {
         state: 'idle',
         attributes: {
             app_name: '',
@@ -40,6 +44,70 @@ const MediaView = ({ editMode = false, onCardEdit = null }) => {
 
     const isPlaying = media.state === 'playing';
     const isPaused = media.state === 'paused';
+    const [isPowered, setOptimisticPowered, rollbackPowered] = useOptimisticValue(powerSwitch.state === 'on');
+    const [activeRemoteCommand, setActiveRemoteCommand] = useState(null);
+    const [launchingApp, setLaunchingApp] = useState(null);
+    const remoteFeedbackTimerRef = useRef(null);
+    const launchFeedbackTimerRef = useRef(null);
+
+    useEffect(() => () => {
+        if (remoteFeedbackTimerRef.current) {
+            window.clearTimeout(remoteFeedbackTimerRef.current);
+        }
+        if (launchFeedbackTimerRef.current) {
+            window.clearTimeout(launchFeedbackTimerRef.current);
+        }
+    }, []);
+
+    const handlePowerToggle = useCallback(() => {
+        const nextPowered = !isPowered;
+        setOptimisticPowered(nextPowered);
+        callService('switch', nextPowered ? 'turn_on' : 'turn_off', { entity_id: mediaConfig.powerSwitch }).catch((error) => {
+            console.warn('Failed to toggle entertainment power:', error);
+            rollbackPowered();
+        });
+    }, [
+        callService,
+        isPowered,
+        mediaConfig.powerSwitch,
+        rollbackPowered,
+        setOptimisticPowered
+    ]);
+
+    const showRemoteFeedback = useCallback((command) => {
+        setActiveRemoteCommand(command);
+        if (remoteFeedbackTimerRef.current) {
+            window.clearTimeout(remoteFeedbackTimerRef.current);
+        }
+        remoteFeedbackTimerRef.current = window.setTimeout(() => {
+            setActiveRemoteCommand(null);
+            remoteFeedbackTimerRef.current = null;
+        }, 220);
+    }, []);
+
+    const sendRemoteCommand = useCallback((command) => {
+        showRemoteFeedback(command);
+        callService('remote', 'send_command', { entity_id: mediaConfig.remote, command }).catch((error) => {
+            console.warn('Failed to send media remote command:', error);
+            setActiveRemoteCommand(null);
+        });
+    }, [callService, mediaConfig.remote, showRemoteFeedback]);
+
+    const launchApp = useCallback((app) => {
+        setLaunchingApp(app.name);
+        if (launchFeedbackTimerRef.current) {
+            window.clearTimeout(launchFeedbackTimerRef.current);
+        }
+        launchFeedbackTimerRef.current = window.setTimeout(() => {
+            setLaunchingApp(null);
+            launchFeedbackTimerRef.current = null;
+        }, 900);
+
+        callService('script', 'turn_on', { entity_id: app.script }).catch((error) => {
+            console.warn('Failed to launch media app:', error);
+            setLaunchingApp(null);
+        });
+    }, [callService]);
 
     const statusPillClasses = isPlaying
         ? 'bg-emerald-500/15 text-emerald-400'
@@ -84,8 +152,8 @@ const MediaView = ({ editMode = false, onCardEdit = null }) => {
                 <div className="w-64 bg-slate-900 rounded-[3rem] border border-slate-700 p-6 shadow-2xl relative">
                     <div className="flex justify-between mb-8 px-2">
                         <button
-                            onClick={() => callService('switch', 'toggle', { entity_id: 'switch.entertainment_sys_2' })}
-                            className="w-10 h-10 rounded-full bg-slate-800 text-red-500 flex items-center justify-center hover:bg-red-500/20 transition-colors"
+                            onClick={handlePowerToggle}
+                            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isPowered ? 'bg-red-500/20 text-red-400 shadow-[0_0_16px_rgba(239,68,68,0.18)]' : 'bg-slate-800 text-red-500 hover:bg-red-500/20'}`}
                         >
                             <Power size={16} />
                         </button>
@@ -97,47 +165,48 @@ const MediaView = ({ editMode = false, onCardEdit = null }) => {
                     {/* D-Pad */}
                     <div className="relative w-48 h-48 mx-auto mb-8 bg-slate-800/50 rounded-full border border-slate-700 flex items-center justify-center">
                         <button
-                            onClick={() => callService('remote', 'send_command', { entity_id: 'remote.xiaomi_tv_box', command: 'DPAD_UP' })}
-                            className="absolute top-2 left-1/2 -translate-x-1/2 w-12 h-12 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 rounded-full"
+                            onClick={() => sendRemoteCommand('DPAD_UP')}
+                            className={`absolute top-2 left-1/2 -translate-x-1/2 w-12 h-12 flex items-center justify-center rounded-full transition-colors ${activeRemoteCommand === 'DPAD_UP' ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                         >
                             <ArrowUp size={24} />
                         </button>
                         <button
-                            onClick={() => callService('remote', 'send_command', { entity_id: 'remote.xiaomi_tv_box', command: 'DPAD_DOWN' })}
-                            className="absolute bottom-2 left-1/2 -translate-x-1/2 w-12 h-12 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 rounded-full"
+                            onClick={() => sendRemoteCommand('DPAD_DOWN')}
+                            className={`absolute bottom-2 left-1/2 -translate-x-1/2 w-12 h-12 flex items-center justify-center rounded-full transition-colors ${activeRemoteCommand === 'DPAD_DOWN' ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                         >
                             <ArrowDown size={24} />
                         </button>
                         <button
-                            onClick={() => callService('remote', 'send_command', { entity_id: 'remote.xiaomi_tv_box', command: 'DPAD_LEFT' })}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 rounded-full"
+                            onClick={() => sendRemoteCommand('DPAD_LEFT')}
+                            className={`absolute left-2 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full transition-colors ${activeRemoteCommand === 'DPAD_LEFT' ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                         >
                             <ArrowLeft size={24} />
                         </button>
                         <button
-                            onClick={() => callService('remote', 'send_command', { entity_id: 'remote.xiaomi_tv_box', command: 'DPAD_RIGHT' })}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 rounded-full"
+                            onClick={() => sendRemoteCommand('DPAD_RIGHT')}
+                            className={`absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 flex items-center justify-center rounded-full transition-colors ${activeRemoteCommand === 'DPAD_RIGHT' ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                         >
                             <ArrowRight size={24} />
                         </button>
-                        <div
-                            onClick={() => callService('remote', 'send_command', { entity_id: 'remote.xiaomi_tv_box', command: 'DPAD_CENTER' })}
-                            className="w-16 h-16 bg-slate-700 rounded-full flex items-center justify-center shadow-inner text-slate-300  text-xs tracking-widest hover:bg-amber-500 hover:text-slate-900 transition-colors cursor-pointer"
+                        <button
+                            type="button"
+                            onClick={() => sendRemoteCommand('DPAD_CENTER')}
+                            className={`w-16 h-16 rounded-full flex items-center justify-center shadow-inner text-xs tracking-widest transition-colors cursor-pointer ${activeRemoteCommand === 'DPAD_CENTER' ? 'bg-amber-500 text-slate-900' : 'bg-slate-700 text-slate-300 hover:bg-amber-500 hover:text-slate-900'}`}
                         >
                             OK
-                        </div>
+                        </button>
                     </div>
 
                     <div className="flex justify-around mb-8 px-4 text-slate-400">
                         <button
-                            onClick={() => callService('remote', 'send_command', { entity_id: 'remote.xiaomi_tv_box', command: 'BACK' })}
-                            className="hover:text-white"
+                            onClick={() => sendRemoteCommand('BACK')}
+                            className={`transition-colors ${activeRemoteCommand === 'BACK' ? 'text-white' : 'hover:text-white'}`}
                         >
                             <ArrowLeft size={20} />
                         </button>
                         <button
-                            onClick={() => callService('remote', 'send_command', { entity_id: 'remote.xiaomi_tv_box', command: 'HOME' })}
-                            className="hover:text-white"
+                            onClick={() => sendRemoteCommand('HOME')}
+                            className={`transition-colors ${activeRemoteCommand === 'HOME' ? 'text-white' : 'hover:text-white'}`}
                         >
                             <Grid size={20} />
                         </button>
@@ -191,18 +260,13 @@ const MediaView = ({ editMode = false, onCardEdit = null }) => {
 
                 <Card title="Quick Launch" subtitle="Shield TV Apps" editMode={editMode} onEditClick={onCardEdit} cardId="media-quick-launch">
                     <div className="grid grid-cols-2 gap-4">
-                        {[
-                            { name: 'Netflix', color: 'bg-red-600', script: 'script.netflix', icon: 'netflix' },
-                            { name: 'Spotify', color: 'bg-green-500', script: 'script.spotify', icon: 'spotify' },
-                            { name: 'YouTube', color: 'bg-red-500', script: 'script.youtube', icon: 'youtube' },
-                            { name: 'Prime', color: 'bg-blue-500', script: 'script.prime', icon: 'prime-video' },
-                        ].map((app, i) => (
+                        {mediaConfig.launchApps.map((app) => (
                             <button
-                                key={i}
-                                onClick={() => callService('script', 'turn_on', { entity_id: app.script })}
-                                className={`${app.color} bg-opacity-20 border border-white/10 hover:bg-opacity-40 h-28 rounded-xl flex flex-col items-center justify-center gap-2 transition-all group hover:scale-105 active:scale-95`}
+                                key={app.name}
+                                onClick={() => launchApp(app)}
+                                className={`${app.color} bg-opacity-20 border border-white/10 hover:bg-opacity-40 h-28 rounded-xl flex flex-col items-center justify-center gap-2 transition-all group hover:scale-105 active:scale-95 ${launchingApp === app.name ? 'scale-[1.02] border-white/30 bg-opacity-40 shadow-[0_0_24px_rgba(255,255,255,0.08)]' : ''}`}
                             >
-                                <div className="group-hover:scale-110 transition-transform">
+                                <div className={`group-hover:scale-110 transition-transform ${launchingApp === app.name ? 'scale-110' : ''}`}>
                                     <BrandIcon name={app.icon} size={48} className="text-slate-100" />
                                 </div>
                                 <span className="font-kumbh text-xs text-slate-100 tracking-widest">{app.name}</span>

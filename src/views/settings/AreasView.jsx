@@ -13,7 +13,7 @@ import getMdiIcon from '../../utils/iconMapper';
 const AreasView = () => {
   const { navigate } = useSettingsNav();
   const { colors } = useAccentColor();
-  const { areas, devices, entityRegistry, deleteArea } = useHAStore();
+  const { areas, devices, entityRegistry } = useHAStore();
   const [editingArea, setEditingArea] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -25,17 +25,6 @@ const AreasView = () => {
       devices: areaDevices.length,
       entities: areaEntities.length
     };
-  };
-
-  const handleDelete = async (area) => {
-    if (window.confirm(`Are you sure you want to delete the area "${area.name}"?`)) {
-      try {
-        await deleteArea(area.area_id);
-      } catch (error) {
-        console.error('Failed to delete area:', error);
-        alert('Failed to delete area: ' + error.message);
-      }
-    }
   };
 
   return (
@@ -115,7 +104,7 @@ const AreasView = () => {
                       <Edit className="w-4 h-4 text-slate-400" />
                     </button>
                     <button
-                      onClick={() => handleDelete(area)}
+                      onClick={() => setEditingArea(area)}
                       className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
                       title="Delete"
                     >
@@ -156,4 +145,3 @@ const AreasView = () => {
 };
 
 export default AreasView;
-

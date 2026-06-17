@@ -10,9 +10,14 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      workbox: {
+        globIgnores: [
+          '**/assets/{af,ar,bg,bn,bs,ca,cs,cy,da,de,el,en,en-GB,eo,es,es-419,et,eu,fa,fi,fy,fr,ga,gl,gsw,he,hi,hr,hu,hy,id,is,it,ja,ka,ko,lb,lt,lv,mk,ml,nb,nl,nn,pl,pt,pt-BR,ro,ru,sk,sl,sq,sr,sr-Latn,sv,ta,te,th,tr,uk,ur,vi,zh-Hans,zh-Hant}-*.js'
+        ]
+      },
       manifest: {
-        name: 'Voerynth OS',
-        short_name: 'Voerynth',
+        name: 'Vœrynth OS',
+        short_name: 'Vœrynth',
         description: 'Vœrynth Système OS - Bespoke Residential Command Protocol',
         theme_color: '#020617',
         background_color: '#020617',

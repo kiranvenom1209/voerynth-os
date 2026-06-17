@@ -41,7 +41,6 @@ const DevicesEntitiesView = () => {
     entityRegistry,
     areasById,
     devicesById,
-    entityRegByEntityId,
     loading,
     error,
     subscriptionActive,
@@ -414,7 +413,7 @@ const DevicesEntitiesView = () => {
 // DEVICES TAB COMPONENT
 // ============================================================================
 
-const DevicesTab = ({ devices, colors, onEditDevice }) => {
+const DevicesTab = ({ devices, onEditDevice }) => {
   if (devices.length === 0) {
     return (
       <div className="text-center py-12 text-slate-400">
@@ -482,7 +481,7 @@ const DevicesTab = ({ devices, colors, onEditDevice }) => {
 // ENTITIES TAB COMPONENT
 // ============================================================================
 
-const EntitiesTab = ({ entities, colors, onEditEntity }) => {
+const EntitiesTab = ({ entities, onEditEntity }) => {
   if (entities.length === 0) {
     return (
       <div className="text-center py-12 text-slate-400">
@@ -613,4 +612,3 @@ const AreasTab = ({ areas, colors, onEditArea, onCreateArea }) => {
 };
 
 export default DevicesEntitiesView;
-
