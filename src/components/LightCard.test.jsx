@@ -67,6 +67,72 @@ describe('LightCard brightness interaction', () => {
     });
   });
 
+  it('ignores touch slider movement until the short hold has armed it', () => {
+    renderLightCard();
+
+    const slider = screen.getByLabelText('Desk Lamp brightness');
+    fireEvent.pointerDown(slider, {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 24,
+      clientY: 4,
+    });
+    fireEvent.pointerMove(slider, {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 170,
+      clientY: 5,
+    });
+    fireEvent.input(slider, { target: { value: '191' } });
+    fireEvent.pointerUp(slider, {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 170,
+      clientY: 5,
+    });
+
+    expect(lightMocks.callService).not.toHaveBeenCalled();
+  });
+
+  it('accepts touch slider movement after a quick hold and horizontal drag', () => {
+    vi.useFakeTimers();
+    try {
+      renderLightCard();
+
+      const slider = screen.getByLabelText('Desk Lamp brightness');
+      fireEvent.pointerDown(slider, {
+        pointerId: 1,
+        pointerType: 'touch',
+        clientX: 24,
+        clientY: 4,
+      });
+      act(() => {
+        vi.advanceTimersByTime(190);
+      });
+      fireEvent.pointerMove(slider, {
+        pointerId: 1,
+        pointerType: 'touch',
+        clientX: 170,
+        clientY: 5,
+      });
+      fireEvent.input(slider, { target: { value: '191' } });
+      fireEvent.pointerUp(slider, {
+        pointerId: 1,
+        pointerType: 'touch',
+        clientX: 170,
+        clientY: 5,
+      });
+
+      expect(screen.getByText('75%')).toBeInTheDocument();
+      expect(lightMocks.callService).toHaveBeenCalledWith('light', 'turn_on', {
+        entity_id: 'light.desk_lamp',
+        brightness: 191,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('does not turn on or adjust brightness when dragging across the card body', () => {
     renderLightCard();
 
@@ -109,6 +175,46 @@ describe('LightCard brightness interaction', () => {
     fireEvent.pointerDown(shell, { pointerId: 1, clientX: 82, clientY: 10 });
     fireEvent.pointerMove(shell, { pointerId: 1, clientX: 88, clientY: 52 });
     fireEvent.pointerUp(shell, { pointerId: 1, clientX: 90, clientY: 88 });
+
+    expect(lightMocks.callService).not.toHaveBeenCalled();
+  });
+
+  it('does not toggle power when a phone scroll begins on the power button', () => {
+    renderLightCard();
+
+    const powerButton = screen.getByRole('button', { name: /toggle desk lamp/i });
+    fireEvent.pointerDown(powerButton, {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 12,
+      clientY: 12,
+    });
+    fireEvent.pointerMove(powerButton, {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 14,
+      clientY: 48,
+    });
+    fireEvent.pointerUp(powerButton, {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 14,
+      clientY: 48,
+    });
+    fireEvent.click(powerButton);
+
+    expect(lightMocks.callService).not.toHaveBeenCalled();
+  });
+
+  it('leaves the brightness slider inert while the light is off', () => {
+    lightMocks.entity = createLightEntity({ isActive: false, brightness: 0 });
+    renderLightCard();
+
+    const slider = screen.getByLabelText('Desk Lamp brightness');
+    expect(slider).toBeDisabled();
+
+    fireEvent.input(slider, { target: { value: '191' } });
+    fireEvent.pointerUp(slider, { pointerId: 1 });
 
     expect(lightMocks.callService).not.toHaveBeenCalled();
   });

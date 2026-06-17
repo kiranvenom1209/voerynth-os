@@ -8,9 +8,35 @@ import { getEntityColor } from '../utils/utils';
 import { getElementCenterOrigin } from '../utils/longPressMotion';
 import BrandIcon from './BrandIcon';
 
+const CONTROL_SCROLL_CANCEL_PX = 10;
+const SLIDER_TOUCH_ARM_PX = 12;
+const SLIDER_TOUCH_HOLD_MS = 180;
+
+const createIdlePowerGesture = (moved = false) => ({
+    tracking: false,
+    moved,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+});
+
+const createIdleSliderGesture = () => ({
+    tracking: false,
+    pointerId: null,
+    pointerType: '',
+    armed: false,
+    holdReady: false,
+    cancelled: false,
+    startX: 0,
+    startY: 0,
+    holdTimer: null,
+});
+
 const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disableAnimation, editMode = false, onEditClick = null, cardId = null }) => {
     const { callService } = useHomeAssistant();
     const cardShellRef = useRef(null);
+    const powerGestureRef = useRef(createIdlePowerGesture());
+    const sliderGestureRef = useRef(createIdleSliderGesture());
     const pendingBrightnessRef = useRef(null);
     const pendingTimerRef = useRef(null);
     const lastServiceAtRef = useRef(0);
@@ -42,11 +68,15 @@ const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disa
         if (pendingTimerRef.current) {
             clearTimeout(pendingTimerRef.current);
         }
+        if (sliderGestureRef.current.holdTimer) {
+            clearTimeout(sliderGestureRef.current.holdTimer);
+        }
     }, [entityId]);
 
     const canAdjustBrightness = entity.supportsBrightness && !entity.isMock;
+    const canUseBrightnessSlider = canAdjustBrightness && localIsOn;
     const visualIsOn = localIsOn;
-    const displayBrightness = canAdjustBrightness ? localBrightness : remoteBrightness;
+    const displayBrightness = canAdjustBrightness && visualIsOn ? localBrightness : remoteBrightness;
 
     // Determine visual color based on state attributes
     const activeColorStyle = entity.color?.hexColor?.startsWith('#') ? entity.color.hexColor : getEntityColor(entity.raw);
@@ -124,15 +154,130 @@ const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disa
         sendBrightness(brightness, immediate);
     }, [canAdjustBrightness, clampBrightness, sendBrightness, setLocalIsOn]);
 
+    const resetSliderGesture = useCallback(() => {
+        const holdTimer = sliderGestureRef.current.holdTimer;
+        if (holdTimer) {
+            clearTimeout(holdTimer);
+        }
+        sliderGestureRef.current = createIdleSliderGesture();
+    }, []);
+
     const handleRangeChange = useCallback((event) => {
+        if (!canUseBrightnessSlider) return;
+
+        const sliderGesture = sliderGestureRef.current;
+        if (sliderGesture.tracking && sliderGesture.pointerType === 'touch' && (!sliderGesture.armed || sliderGesture.cancelled)) {
+            return;
+        }
+
         updateBrightness(event.target.value);
-    }, [updateBrightness]);
+    }, [canUseBrightnessSlider, updateBrightness]);
 
     const handleRangeCommit = useCallback((event) => {
-        updateBrightness(event.target.value, { immediate: true });
-    }, [updateBrightness]);
+        if (!canUseBrightnessSlider) {
+            resetSliderGesture();
+            return;
+        }
 
-    const handlePowerToggle = useCallback(() => {
+        const sliderGesture = sliderGestureRef.current;
+        if (sliderGesture.tracking && sliderGesture.pointerType === 'touch' && (!sliderGesture.armed || sliderGesture.cancelled)) {
+            resetSliderGesture();
+            return;
+        }
+
+        updateBrightness(event.target.value, { immediate: true });
+        resetSliderGesture();
+    }, [canUseBrightnessSlider, resetSliderGesture, updateBrightness]);
+
+    const handleSliderPointerDown = useCallback((event) => {
+        if (!canUseBrightnessSlider) {
+            resetSliderGesture();
+            return;
+        }
+
+        const isTouch = event.pointerType === 'touch';
+        sliderGestureRef.current = {
+            tracking: true,
+            pointerId: event.pointerId,
+            pointerType: event.pointerType || '',
+            armed: !isTouch,
+            holdReady: !isTouch,
+            cancelled: false,
+            startX: event.clientX,
+            startY: event.clientY,
+            holdTimer: null,
+        };
+
+        if (isTouch) {
+            sliderGestureRef.current.holdTimer = setTimeout(() => {
+                const sliderGesture = sliderGestureRef.current;
+                if (sliderGesture.tracking && sliderGesture.pointerId === event.pointerId && !sliderGesture.cancelled) {
+                    sliderGesture.holdReady = true;
+                    sliderGesture.holdTimer = null;
+                }
+            }, SLIDER_TOUCH_HOLD_MS);
+        }
+    }, [canUseBrightnessSlider, resetSliderGesture]);
+
+    const handleSliderPointerMove = useCallback((event) => {
+        const sliderGesture = sliderGestureRef.current;
+        if (!sliderGesture.tracking || sliderGesture.pointerId !== event.pointerId || sliderGesture.pointerType !== 'touch') return;
+
+        const horizontalTravel = Math.abs(event.clientX - sliderGesture.startX);
+        const verticalTravel = Math.abs(event.clientY - sliderGesture.startY);
+
+        if (!sliderGesture.armed && verticalTravel >= CONTROL_SCROLL_CANCEL_PX && verticalTravel >= horizontalTravel) {
+            sliderGesture.cancelled = true;
+            if (sliderGesture.holdTimer) {
+                clearTimeout(sliderGesture.holdTimer);
+                sliderGesture.holdTimer = null;
+            }
+            return;
+        }
+
+        if (sliderGesture.holdReady && !sliderGesture.cancelled && horizontalTravel >= SLIDER_TOUCH_ARM_PX && horizontalTravel > verticalTravel * 1.25) {
+            sliderGesture.armed = true;
+        }
+    }, []);
+
+    const handleSliderPointerCancel = useCallback(() => {
+        resetSliderGesture();
+    }, [resetSliderGesture]);
+
+    const handlePowerPointerDown = useCallback((event) => {
+        powerGestureRef.current = {
+            tracking: true,
+            moved: false,
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+        };
+    }, []);
+
+    const handlePowerPointerMove = useCallback((event) => {
+        const powerGesture = powerGestureRef.current;
+        if (!powerGesture.tracking || powerGesture.pointerId !== event.pointerId) return;
+
+        const horizontalTravel = event.clientX - powerGesture.startX;
+        const verticalTravel = event.clientY - powerGesture.startY;
+        if (Math.hypot(horizontalTravel, verticalTravel) >= CONTROL_SCROLL_CANCEL_PX) {
+            powerGesture.moved = true;
+        }
+    }, []);
+
+    const handlePowerPointerCancel = useCallback(() => {
+        powerGestureRef.current = createIdlePowerGesture(true);
+    }, []);
+
+    const handlePowerToggle = useCallback((event) => {
+        if (powerGestureRef.current.moved) {
+            event?.preventDefault?.();
+            event?.stopPropagation?.();
+            powerGestureRef.current = createIdlePowerGesture();
+            return;
+        }
+
+        powerGestureRef.current = createIdlePowerGesture();
         const nextIsOn = !visualIsOn;
         setLocalIsOn(nextIsOn);
 
@@ -231,6 +376,9 @@ const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disa
                             type="button"
                             data-light-card-control
                             onClick={handlePowerToggle}
+                            onPointerDown={handlePowerPointerDown}
+                            onPointerMove={handlePowerPointerMove}
+                            onPointerCancel={handlePowerPointerCancel}
                             aria-label={`Toggle ${displayName || entity.displayName}`}
                             className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all duration-300 hover:scale-110`}
                             style={{
@@ -252,10 +400,13 @@ const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disa
                         min="1"
                         max="255"
                         value={Math.max(1, displayBrightness)}
-                        disabled={!canAdjustBrightness}
+                        disabled={!canUseBrightnessSlider}
                         onInput={handleRangeChange}
                         onChange={handleRangeChange}
+                        onPointerDown={handleSliderPointerDown}
+                        onPointerMove={handleSliderPointerMove}
                         onPointerUp={handleRangeCommit}
+                        onPointerCancel={handleSliderPointerCancel}
                         onKeyUp={handleRangeCommit}
                         aria-label={`${displayName || entity.displayName} brightness`}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-20 disabled:cursor-not-allowed"
