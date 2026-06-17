@@ -8,14 +8,9 @@ import { getEntityColor } from '../utils/utils';
 import { getElementCenterOrigin } from '../utils/longPressMotion';
 import BrandIcon from './BrandIcon';
 
-const BRIGHTNESS_DRAG_START_PX = 12;
-const BRIGHTNESS_SCROLL_CANCEL_PX = 10;
-
 const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disableAnimation, editMode = false, onEditClick = null, cardId = null }) => {
     const { callService } = useHomeAssistant();
     const cardShellRef = useRef(null);
-    const cardBodyRef = useRef(null);
-    const dragRef = useRef({ tracking: false, dragging: false, pointerId: null, startX: 0, startY: 0 });
     const pendingBrightnessRef = useRef(null);
     const pendingTimerRef = useRef(null);
     const lastServiceAtRef = useRef(0);
@@ -38,7 +33,7 @@ const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disa
     const [localIsOn, setLocalIsOn, rollbackLocalIsOn] = useOptimisticValue(isOn);
 
     useEffect(() => {
-        if (!dragRef.current.dragging && Date.now() - lastLocalUpdateAtRef.current > 400) {
+        if (Date.now() - lastLocalUpdateAtRef.current > 400) {
             setLocalBrightness(remoteBrightness);
         }
     }, [entityId, isOn, remoteBrightness]);
@@ -58,13 +53,11 @@ const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disa
     const colorStyle = visualIsOn ? (activeColorStyle || '#f59e0b') : '#475569'; // Slate-600 if off
 
     const openColorPicker = useCallback(() => {
-        if (!dragRef.current.dragging) {
-            const origin = getElementCenterOrigin(cardShellRef.current);
-            if (origin) {
-                onColorPicker?.(entityId, origin);
-            } else {
-                onColorPicker?.(entityId);
-            }
+        const origin = getElementCenterOrigin(cardShellRef.current);
+        if (origin) {
+            onColorPicker?.(entityId, origin);
+        } else {
+            onColorPicker?.(entityId);
         }
     }, [entityId, onColorPicker]);
 
@@ -131,76 +124,6 @@ const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disa
         sendBrightness(brightness, immediate);
     }, [canAdjustBrightness, clampBrightness, sendBrightness, setLocalIsOn]);
 
-    const brightnessFromPointer = useCallback((clientX) => {
-        const cardBody = cardShellRef.current || cardBodyRef.current;
-        if (!cardBody) return localBrightness;
-
-        const rect = cardBody.getBoundingClientRect();
-        if (rect.width <= 0) return localBrightness;
-
-        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-        return clampBrightness(ratio * 255);
-    }, [clampBrightness, localBrightness]);
-
-    const shouldIgnorePointer = useCallback((target) => {
-        return !canAdjustBrightness || shouldIgnoreColorPickerTarget(target);
-    }, [canAdjustBrightness, shouldIgnoreColorPickerTarget]);
-
-    const handlePointerDown = useCallback((event) => {
-        if (shouldIgnorePointer(event.target)) return;
-
-        dragRef.current = {
-            tracking: true,
-            dragging: false,
-            pointerId: event.pointerId,
-            startX: event.clientX,
-            startY: event.clientY,
-        };
-    }, [shouldIgnorePointer]);
-
-    const handlePointerMove = useCallback((event) => {
-        const dragState = dragRef.current;
-        if (!dragState.tracking || dragState.pointerId !== event.pointerId) return;
-
-        const deltaX = event.clientX - dragState.startX;
-        const deltaY = event.clientY - dragState.startY;
-        const horizontalTravel = Math.abs(deltaX);
-        const verticalTravel = Math.abs(deltaY);
-
-        if (!dragState.dragging) {
-            if (verticalTravel >= BRIGHTNESS_SCROLL_CANCEL_PX && verticalTravel >= horizontalTravel) {
-                dragRef.current = { tracking: false, dragging: false, pointerId: null, startX: 0, startY: 0 };
-                return;
-            }
-
-            if (horizontalTravel < BRIGHTNESS_DRAG_START_PX || horizontalTravel <= verticalTravel * 1.25) {
-                return;
-            }
-
-            dragState.dragging = true;
-            event.currentTarget.setPointerCapture?.(event.pointerId);
-        }
-
-        event.preventDefault();
-        updateBrightness(brightnessFromPointer(event.clientX));
-    }, [brightnessFromPointer, updateBrightness]);
-
-    const finishPointerGesture = useCallback((event) => {
-        const dragState = dragRef.current;
-        if (!dragState.tracking || dragState.pointerId !== event.pointerId) return;
-
-        if (dragState.dragging) {
-            updateBrightness(brightnessFromPointer(event.clientX), { immediate: true });
-            event.preventDefault();
-            event.stopPropagation();
-        }
-
-        if (dragState.dragging) {
-            event.currentTarget.releasePointerCapture?.(event.pointerId);
-        }
-        dragRef.current = { tracking: false, dragging: false, pointerId: null, startX: 0, startY: 0 };
-    }, [brightnessFromPointer, updateBrightness]);
-
     const handleRangeChange = useCallback((event) => {
         updateBrightness(event.target.value);
     }, [updateBrightness]);
@@ -250,10 +173,6 @@ const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disa
             containerProps={{
                 'data-light-card-shell': true,
                 style: { touchAction: 'pan-y' },
-                onPointerDown: handlePointerDown,
-                onPointerMove: handlePointerMove,
-                onPointerUp: finishPointerGesture,
-                onPointerCancel: finishPointerGesture,
                 onContextMenu: handleCardContextMenu,
                 ...longPress,
             }}
@@ -273,9 +192,8 @@ const LightCard = ({ lightConfig, savedConfig, onColorPicker, index, delay, disa
             )}
 
             <div
-                ref={cardBodyRef}
                 data-light-card-body
-                className={`relative z-10 flex h-full min-h-full select-none flex-col ${canAdjustBrightness && !editMode ? 'cursor-ew-resize' : ''}`}
+                className="relative z-10 flex h-full min-h-full select-none flex-col"
             >
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-3">

@@ -51,7 +51,23 @@ describe('LightCard brightness interaction', () => {
     lightMocks.entity = createLightEntity();
   });
 
-  it('updates brightness optimistically when sliding across the card body', async () => {
+  it('updates brightness optimistically from the brightness slider', async () => {
+    renderLightCard();
+
+    const slider = screen.getByLabelText('Desk Lamp brightness');
+    fireEvent.input(slider, { target: { value: '191' } });
+    fireEvent.pointerUp(slider, { pointerId: 1 });
+
+    expect(await screen.findByText('75%')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(lightMocks.callService).toHaveBeenCalledWith('light', 'turn_on', {
+        entity_id: 'light.desk_lamp',
+        brightness: 191,
+      });
+    });
+  });
+
+  it('does not turn on or adjust brightness when dragging across the card body', () => {
     renderLightCard();
 
     const shell = screen.getByText('Desk Lamp').closest('[data-light-card-shell]');
@@ -67,17 +83,11 @@ describe('LightCard brightness interaction', () => {
       toJSON: () => {},
     });
 
-    fireEvent.pointerDown(shell, { pointerId: 1, clientX: 20 });
-    fireEvent.pointerMove(shell, { pointerId: 1, clientX: 150 });
-    fireEvent.pointerUp(shell, { pointerId: 1, clientX: 150 });
+    fireEvent.pointerDown(shell, { pointerId: 1, clientX: 20, clientY: 60 });
+    fireEvent.pointerMove(shell, { pointerId: 1, clientX: 150, clientY: 62 });
+    fireEvent.pointerUp(shell, { pointerId: 1, clientX: 150, clientY: 62 });
 
-    expect(await screen.findByText('75%')).toBeInTheDocument();
-    await waitFor(() => {
-      expect(lightMocks.callService).toHaveBeenCalledWith('light', 'turn_on', {
-        entity_id: 'light.desk_lamp',
-        brightness: 191,
-      });
-    });
+    expect(lightMocks.callService).not.toHaveBeenCalled();
   });
 
   it('does not turn on or adjust brightness during a vertical phone scroll', () => {
