@@ -8,6 +8,13 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useHomeAssistant } from '../../context/HomeAssistantContext';
 import estateEntities from '../../config/estateEntities';
+import {
+    buildLocationBoundsPoints,
+    getHaversineDistanceMeters,
+    hasCoordinatePair,
+    normalizePoint,
+    toCoordinateNumber,
+} from '../../utils/locationGeometry';
 
 // Fix for default Leaflet icon paths in some bundlers
 delete L.Icon.Default.prototype._getIconUrl;
@@ -17,19 +24,29 @@ L.Icon.Default.mergeOptions({
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// A helper component to automatically pan/zoom the map to fit all markers
-const MapBoundsUpdater = ({ markers, isInteractive }) => {
+// A helper component to automatically pan/zoom the map to fit all tactical points
+const MapBoundsUpdater = ({ points, isInteractive }) => {
     const map = useMap();
+    const boundsKey = points.map(point => `${point.lat.toFixed(5)},${point.lon.toFixed(5)}`).join('|');
 
     useEffect(() => {
         // Only auto-update bounds if NOT in interactive mode
-        if (markers.length > 0 && !isInteractive) {
-            // Create a LatLngBounds object encompassing all marker coordinates
-            const bounds = L.latLngBounds(markers.map(m => [m.lat, m.lon]));
-            // fitBounds adjusts zoom and center. padding prevents markers from touching the absolute edge of the card.
-            map.fitBounds(bounds, { padding: [80, 80], maxZoom: 17, animate: true, duration: 1.5 });
+        if (points.length > 0 && !isInteractive) {
+            if (points.length === 1) {
+                map.setView([points[0].lat, points[0].lon], 13, { animate: true, duration: 1.5 });
+                return;
+            }
+
+            const bounds = L.latLngBounds(points.map(point => [point.lat, point.lon]));
+            map.fitBounds(bounds, {
+                paddingTopLeft: [64, 132],
+                paddingBottomRight: [64, 88],
+                maxZoom: 15,
+                animate: true,
+                duration: 1.5
+            });
         }
-    }, [markers, map, isInteractive]);
+    }, [boundsKey, points, map, isInteractive]);
 
     return null;
 };
@@ -112,12 +129,12 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
                 return {
                     id: key,
                     name: zone.attributes.friendly_name || key,
-                    lat: zone.attributes.latitude,
-                    lon: zone.attributes.longitude,
-                    radius: zone.attributes.radius || 100
+                    lat: toCoordinateNumber(zone.attributes.latitude),
+                    lon: toCoordinateNumber(zone.attributes.longitude),
+                    radius: Number(zone.attributes.radius) || 100
                 };
             })
-            .filter(z => z.lat && z.lon);
+            .filter(hasCoordinatePair);
     }, [hassStates]);
 
     // Parse and validate coordinates. Only include people who have valid GPS data.
@@ -135,36 +152,80 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
         ];
 
         return people
-            .filter(p => p.name && p.data?.attributes?.latitude && p.data?.attributes?.longitude)
+            .filter(p => p.name && hasCoordinatePair({
+                lat: p.data?.attributes?.latitude,
+                lon: p.data?.attributes?.longitude
+            }))
             .map(p => ({
                 id: p.id,
                 name: p.name,
                 state: p.data.state,
-                lat: p.data.attributes.latitude,
-                lon: p.data.attributes.longitude
+                lat: toCoordinateNumber(p.data.attributes.latitude),
+                lon: toCoordinateNumber(p.data.attributes.longitude)
             }));
     }, [kiran, danny, ayanthiara, locationConfig]);
 
     // Determine if Kiran is away from home
     const isKiranAway = kiran?.state && kiran.state.toLowerCase() !== 'home';
-    const kiranLat = kiran?.attributes?.latitude;
-    const kiranLon = kiran?.attributes?.longitude;
+    const kiranLat = toCoordinateNumber(kiran?.attributes?.latitude);
+    const kiranLon = toCoordinateNumber(kiran?.attributes?.longitude);
     const homeZone = zones.find(z => z.id === 'zone.home');
+    const homeLat = homeZone?.lat ?? null;
+    const homeLon = homeZone?.lon ?? null;
+    const routePersonPoint = useMemo(() => normalizePoint({ id: 'route-person', lat: kiranLat, lon: kiranLon }), [kiranLat, kiranLon]);
+    const homePoint = useMemo(() => normalizePoint(homeLat !== null && homeLon !== null ? { id: 'home-base', name: 'Home', lat: homeLat, lon: homeLon } : null), [homeLat, homeLon]);
+    const directDistance = useMemo(() => (
+        isKiranAway && routePersonPoint && homePoint
+            ? getHaversineDistanceMeters(routePersonPoint, homePoint)
+            : null
+    ), [homePoint, isKiranAway, routePersonPoint]);
+    const routeLinePositions = useMemo(() => {
+        if (routeData?.coords?.length > 0) return routeData.coords;
+        if (isKiranAway && routePersonPoint && homePoint) {
+            return [[routePersonPoint.lat, routePersonPoint.lon], [homePoint.lat, homePoint.lon]];
+        }
+        return [];
+    }, [homePoint, isKiranAway, routeData, routePersonPoint]);
+    const routeMetrics = useMemo(() => (
+        isKiranAway && (routeData || directDistance)
+            ? {
+                distance: routeData?.distance ?? directDistance,
+                duration: routeData?.duration ?? null,
+                source: routeData ? 'route' : 'direct'
+            }
+            : null
+    ), [directDistance, isKiranAway, routeData]);
+    const mapBoundsPoints = useMemo(() => buildLocationBoundsPoints({
+        markers: activeMarkers,
+        homePoint: isKiranAway ? homePoint : null,
+        routeCoords: routeLinePositions
+    }), [activeMarkers, homePoint, isKiranAway, routeLinePositions]);
+    const hasHomeMarkerNearZone = useMemo(() => {
+        if (!homePoint) return false;
+        return activeMarkers.some((marker) => {
+            if (marker.name?.toLowerCase() !== 'home') return false;
+            const distance = getHaversineDistanceMeters(marker, homePoint);
+            return distance !== null && distance < 60;
+        });
+    }, [activeMarkers, homePoint]);
+    const shouldRenderHomeTarget = Boolean(isKiranAway && homePoint && !hasHomeMarkerNearZone);
 
     // Fetch route from OSRM when Kiran is away from home
     useEffect(() => {
         // Clear route when home
-        if (!isKiranAway || !kiranLat || !kiranLon || !homeZone) {
+        if (!isKiranAway || kiranLat === null || kiranLon === null || !homePoint) {
             setRouteData(null);
             return;
         }
+
+        setRouteData(null);
 
         // Debounce to avoid excessive API calls
         if (routeFetchRef.current) clearTimeout(routeFetchRef.current);
 
         routeFetchRef.current = setTimeout(async () => {
             try {
-                const url = `https://router.project-osrm.org/route/v1/driving/${kiranLon},${kiranLat};${homeZone.lon},${homeZone.lat}?overview=full&geometries=geojson`;
+                const url = `https://router.project-osrm.org/route/v1/driving/${kiranLon},${kiranLat};${homePoint.lon},${homePoint.lat}?overview=full&geometries=geojson`;
                 const res = await fetch(url);
                 const data = await res.json();
 
@@ -185,7 +246,7 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
         }, 2000); // 2s debounce
 
         return () => clearTimeout(routeFetchRef.current);
-    }, [isKiranAway, kiranLat, kiranLon, homeZone]);
+    }, [isKiranAway, kiranLat, kiranLon, homePoint]);
 
     // Format helpers for route HUD
     const formatDistance = (meters) => {
@@ -204,7 +265,7 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
     // Fetch next train connection from DB transport.rest API
     // We keep last known good data to prevent the HUD from vanishing on intermittent DB API failures.
     useEffect(() => {
-        if (!isKiranAway || !kiranLat || !kiranLon || !homeZone) {
+        if (!isKiranAway || kiranLat === null || kiranLon === null || !homePoint) {
             setTransitData(null);
             return;
         }
@@ -221,7 +282,7 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
                 let fromId, toId;
                 try {
                     const fromRes = await fetch(`https://v6.db.transport.rest/locations/nearby?latitude=${kiranLat}&longitude=${kiranLon}&results=1&poi=false&addresses=false`, fetchOpts);
-                    const toRes = await fetch(`https://v6.db.transport.rest/locations/nearby?latitude=${homeZone.lat}&longitude=${homeZone.lon}&results=1&poi=false&addresses=false`, fetchOpts);
+                    const toRes = await fetch(`https://v6.db.transport.rest/locations/nearby?latitude=${homePoint.lat}&longitude=${homePoint.lon}&results=1&poi=false&addresses=false`, fetchOpts);
 
                     if (fromRes.ok && toRes.ok) {
                         const fromData = await fromRes.json();
@@ -255,8 +316,8 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
                 } else {
                     params.append('from.latitude', kiranLat);
                     params.append('from.longitude', kiranLon);
-                    params.append('to.latitude', homeZone.lat);
-                    params.append('to.longitude', homeZone.lon);
+                    params.append('to.latitude', homePoint.lat);
+                    params.append('to.longitude', homePoint.lon);
                 }
 
                 // 3. Fetch journey
@@ -314,7 +375,7 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
         }, 5000); // 5s debounce (poll very slowly)
 
         return () => clearTimeout(transitFetchRef.current);
-    }, [isKiranAway, kiranLat, kiranLon, homeZone]);
+    }, [isKiranAway, kiranLat, kiranLon, homePoint]);
 
     // Check if a person's state matches a known zone
     const getPersonZoneColor = (state) => {
@@ -361,6 +422,24 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
             iconAnchor: [14, 14],
         });
     };
+
+    const createHomeTargetIcon = () => L.divIcon({
+        html: `
+      <div class="relative flex items-center justify-center pointer-events-none">
+        <div class="absolute -inset-4 rounded-full border border-emerald-400/30 animate-ping"></div>
+        <div class="absolute -inset-2 rounded-full bg-emerald-400/20 blur-md"></div>
+        <div class="relative w-8 h-8 rounded-full border-2 border-emerald-400 bg-slate-950 shadow-[0_0_18px_rgba(16,185,129,0.55)] flex items-center justify-center">
+          <div class="w-2.5 h-2.5 rounded-full bg-emerald-300"></div>
+        </div>
+        <div class="absolute top-10 bg-slate-950/90 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-bold text-emerald-100 border border-emerald-500/30 whitespace-nowrap shadow-2xl skew-x-[-10deg]">
+          Home Base
+        </div>
+      </div>
+    `,
+        className: 'custom-leaflet-marker',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+    });
 
     return (
         <Card
@@ -459,13 +538,14 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
                         })}
 
                         {/* Route polyline to home (amber dashed) */}
-                        {routeData && routeData.coords.length > 0 && (
+                        {routeLinePositions.length > 0 && (
                             <Polyline
-                                positions={routeData.coords}
+                                positions={routeLinePositions}
                                 pathOptions={{
                                     color: '#f59e0b',
                                     weight: 1.5,
-                                    opacity: 0.5,
+                                    opacity: routeData ? 0.5 : 0.35,
+                                    dashArray: routeData ? null : '6, 10',
                                     lineCap: 'round',
                                     lineJoin: 'round'
                                 }}
@@ -480,8 +560,16 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
                             />
                         ))}
 
+                        {shouldRenderHomeTarget && (
+                            <Marker
+                                key="home-base"
+                                position={[homePoint.lat, homePoint.lon]}
+                                icon={createHomeTargetIcon()}
+                            />
+                        )}
+
                         <MapInteractionHandler isInteractive={isInteractive} />
-                        <MapBoundsUpdater markers={activeMarkers} isInteractive={isInteractive} />
+                        <MapBoundsUpdater points={mapBoundsPoints} isInteractive={isInteractive} />
                     </MapContainer>
 
                     {/* INTERACTION SHIELD: This is the source of truth for map locking */}
@@ -534,7 +622,7 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
 
 
 
-            <div className="absolute top-0 left-0 w-full bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-transparent pointer-events-none z-[400] flex justify-between px-4 sm:px-6 py-4 sm:py-5" style={{ height: routeData && isKiranAway ? (transitData ? '9.5rem' : '7.5rem') : '6rem' }}>
+            <div className="absolute top-0 left-0 w-full bg-gradient-to-b from-slate-950/90 via-slate-950/40 to-transparent pointer-events-none z-[400] flex justify-between px-4 sm:px-6 py-4 sm:py-5" style={{ height: routeMetrics && isKiranAway ? (transitData ? '9.5rem' : '7.5rem') : '6rem' }}>
                 <div className="flex flex-col drop-shadow-2xl">
                     <h3 className="text-white font-serif text-base sm:text-lg tracking-tight flex items-center gap-2">
                         <div className={`p-1 rounded-sm bg-slate-900 border border-slate-800 ${colors.text}`}>
@@ -548,12 +636,15 @@ const LiveLocationCard = ({ delay = 300, editMode = false, onEditClick = null, c
                     </div>
 
                     {/* Route-to-Home tactical HUD — compact */}
-                    {routeData && isKiranAway && (
+                    {routeMetrics && isKiranAway && (
                         <div className="mt-2 flex items-center gap-2 w-fit bg-slate-950/70 backdrop-blur-xl px-2 py-1.5 rounded-sm border border-amber-500/30">
                             <Navigation size={9} className="text-amber-500 shrink-0" />
-                            <span className="text-[9px] text-amber-400/90 font-mono font-bold">{formatDistance(routeData.distance)}</span>
+                            <span className="text-[8px] text-slate-500 font-mono uppercase tracking-[0.2em]">home</span>
+                            <span className="text-[9px] text-amber-400/90 font-mono font-bold">{formatDistance(routeMetrics.distance)}</span>
                             <span className="text-[8px] text-slate-600">│</span>
-                            <span className="text-[9px] text-amber-400/90 font-mono font-bold">{formatDuration(routeData.duration)}</span>
+                            <span className="text-[9px] text-amber-400/90 font-mono font-bold">
+                                {routeMetrics.duration ? formatDuration(routeMetrics.duration) : 'direct'}
+                            </span>
                         </div>
                     )}
 
